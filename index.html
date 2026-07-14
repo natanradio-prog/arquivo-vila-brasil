@@ -462,6 +462,18 @@ const BLOCO_LABELS = {
   encerramento: 'Encerramento'
 };
 
+const BLOCO_COLORS = {
+  abertura: '#2c3e50',
+  capelinha: '#4a235a',
+  peNaRoca: '#1b5e20',
+  poesia: '#5d4037',
+  noBalcaoDaVendinha: '#8a6d00',
+  feiraLivre: '#7a2323',
+  vilaMundo: '#1565c0',
+  sonho: '#0d1b4b',
+  encerramento: '#1a1a2e'
+};
+
 /* ---------- Utilidades ---------- */
 function uid(){ return 'e' + Date.now() + Math.random().toString(36).slice(2,7); }
 function normalizar(s){
@@ -846,6 +858,7 @@ function renderLista(){
             <div class="card-meta">Exibição: ${formatDataBR(e.data)} ${e.numero? '· Edição '+escapeHtml(e.numero):''}</div>
           </div>
           <div class="card-actions">
+            <button class="btn btn-ghost btn-sm" style="color:var(--brass); border-color:var(--brass);" onclick="imprimirEdicao('${e.id}')">Imprimir</button>
             <button class="btn btn-ghost btn-sm" style="color:var(--forest); border-color:var(--forest);" onclick="editarEdicao('${e.id}')">Editar</button>
             <button class="btn btn-wine btn-sm" onclick="excluirEdicao('${e.id}')">Excluir</button>
           </div>
@@ -888,6 +901,69 @@ function editarEdicao(id){
   document.getElementById('musicRows').innerHTML = '';
   (e.musicas && e.musicas.length ? e.musicas : [{titulo:'',artista:'',bloco:'abertura'}]).forEach(addMusicRow);
   document.querySelector('nav.tabs button[data-view="nova"]').click();
+}
+
+function imprimirEdicao(id){
+  const e = state.edicoes.find(x=>x.id===id);
+  if(!e) return;
+
+  const blocosHtml = Object.keys(BLOCO_LABELS).map(key=>{
+    const texto = (e.blocos && e.blocos[key]) ? e.blocos[key].trim() : '';
+    if(!texto) return '';
+    const musicasDoBloco = (e.musicas||[]).filter(m=>m.bloco===key);
+    const musicasHtml = musicasDoBloco.length
+      ? `<div class="p-musicas">🎵 ${musicasDoBloco.map(m=>escapeHtml([m.titulo,m.artista].filter(Boolean).join(' — '))).join(' · ')}</div>`
+      : '';
+    return `<section class="p-bloco">
+      <div class="p-bloco-header" style="background:${BLOCO_COLORS[key]||'#333'};">${escapeHtml(BLOCO_LABELS[key])}</div>
+      <div class="p-bloco-texto">${escapeHtml(texto).replace(/\n/g,'<br>')}</div>
+      ${musicasHtml}
+    </section>`;
+  }).join('');
+
+  const musicasSemBloco = (e.musicas||[]).filter(m=>!BLOCO_LABELS[m.bloco]);
+  const extraMusicasHtml = musicasSemBloco.length
+    ? `<section class="p-bloco"><div class="p-bloco-header" style="background:#555;">Outras músicas</div>
+       <div class="p-musicas">🎵 ${musicasSemBloco.map(m=>escapeHtml([m.titulo,m.artista].filter(Boolean).join(' — '))).join(' · ')}</div></section>`
+    : '';
+
+  const obsHtml = e.obs
+    ? `<section class="p-bloco"><div class="p-bloco-header" style="background:#555;">Observações</div><div class="p-bloco-texto">${escapeHtml(e.obs).replace(/\n/g,'<br>')}</div></section>`
+    : '';
+
+  const doc = `<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="UTF-8">
+<title>Vila Brasil — ${escapeHtml(e.tema||'Edição')}</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,600;0,700;0,900;1,500&family=Karla:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  @page{ margin: 18mm 16mm; }
+  *{ box-sizing:border-box; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  body{ font-family:'Karla',sans-serif; color:#222; margin:0; }
+  .p-header{ font-family:'Fraunces',serif; font-weight:700; border-bottom:3px solid #2B2417; padding-bottom:12px; margin-bottom:20px; }
+  .p-header h1{ font-size:24px; margin:0 0 4px; font-style:italic; }
+  .p-header .p-meta{ font-family:'Karla',sans-serif; font-weight:600; font-size:13px; color:#555; }
+  .p-bloco{ margin-bottom:16px; break-inside: avoid; }
+  .p-bloco-header{ color:#fff; font-family:'Fraunces',serif; font-weight:700; font-size:13px; letter-spacing:0.4px; text-transform:uppercase; padding:6px 12px; border-radius:4px 4px 0 0; }
+  .p-bloco-texto{ font-size:14px; line-height:1.55; padding:10px 12px; border:1px solid #ddd; border-top:none; white-space:pre-wrap; }
+  .p-musicas{ font-size:12px; color:#555; padding:4px 12px 8px; border:1px solid #ddd; border-top:none; }
+  @media print{ .p-noprint{ display:none; } }
+</style>
+</head><body>
+  <div class="p-header">
+    <h1>Vila Brasil${e.tema? ' — '+escapeHtml(e.tema) : ''}</h1>
+    <div class="p-meta">${e.numero? 'Edição '+escapeHtml(e.numero)+' · ':''}Exibição: ${formatDataBR(e.data)}</div>
+  </div>
+  ${blocosHtml}
+  ${extraMusicasHtml}
+  ${obsHtml}
+</body></html>`;
+
+  const win = window.open('', '_blank');
+  if(!win){ alert('Não foi possível abrir a janela de impressão. Verifique se o navegador bloqueou pop-ups.'); return; }
+  win.document.open();
+  win.document.write(doc);
+  win.document.close();
+  win.onload = () => { win.focus(); win.print(); };
 }
 
 function excluirEdicao(id){
