@@ -907,16 +907,26 @@ function imprimirEdicao(id){
   const e = state.edicoes.find(x=>x.id===id);
   if(!e) return;
 
+  let contadorMusica = 0;
+  const numerarMusicas = (lista) => lista.map(m=>{
+    contadorMusica++;
+    const titulo = [m.titulo, m.artista].filter(Boolean).join(' — ');
+    return `<strong>Música ${contadorMusica}:</strong> ${escapeHtml(titulo)}`;
+  }).join(' &nbsp;|&nbsp; ');
+
   const blocosHtml = Object.keys(BLOCO_LABELS).map(key=>{
     const texto = (e.blocos && e.blocos[key]) ? e.blocos[key].trim() : '';
-    if(!texto) return '';
     const musicasDoBloco = (e.musicas||[]).filter(m=>m.bloco===key);
+    if(!texto && musicasDoBloco.length===0) return '';
     const musicasHtml = musicasDoBloco.length
-      ? `<div class="p-musicas">🎵 ${musicasDoBloco.map(m=>escapeHtml([m.titulo,m.artista].filter(Boolean).join(' — '))).join(' · ')}</div>`
+      ? `<div class="p-musicas">🎵 ${numerarMusicas(musicasDoBloco)}</div>`
+      : '';
+    const textoHtml = texto
+      ? `<div class="p-bloco-texto">${escapeHtml(texto).replace(/\n/g,'<br>')}</div>`
       : '';
     return `<section class="p-bloco">
       <div class="p-bloco-header" style="background:${BLOCO_COLORS[key]||'#333'};">${escapeHtml(BLOCO_LABELS[key])}</div>
-      <div class="p-bloco-texto">${escapeHtml(texto).replace(/\n/g,'<br>')}</div>
+      ${textoHtml}
       ${musicasHtml}
     </section>`;
   }).join('');
@@ -924,7 +934,7 @@ function imprimirEdicao(id){
   const musicasSemBloco = (e.musicas||[]).filter(m=>!BLOCO_LABELS[m.bloco]);
   const extraMusicasHtml = musicasSemBloco.length
     ? `<section class="p-bloco"><div class="p-bloco-header" style="background:#555;">Outras músicas</div>
-       <div class="p-musicas">🎵 ${musicasSemBloco.map(m=>escapeHtml([m.titulo,m.artista].filter(Boolean).join(' — '))).join(' · ')}</div></section>`
+       <div class="p-musicas">🎵 ${numerarMusicas(musicasSemBloco)}</div></section>`
     : '';
 
   const obsHtml = e.obs
