@@ -280,6 +280,24 @@
   .bloco-quick-btn.remove-tipo{
     margin-left:4px; color: var(--wine); font-weight:700; cursor:pointer; border:none; background:none;
   }
+  .seq-insert-slot{
+    display:flex; flex-direction:column; align-items:center; margin: 2px 0;
+  }
+  .seq-insert-toggle{
+    width:22px; height:22px; border-radius:50%; border:1.5px dashed var(--thread);
+    background: var(--paper); color: var(--ink-soft); font-size:14px; font-weight:700;
+    line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center;
+    padding:0; transition: background .12s ease, color .12s ease;
+  }
+  .seq-insert-toggle:hover{ background: var(--brass-light); color:#2B2417; border-style:solid; }
+  .seq-insert-slot::before, .seq-insert-slot::after{ content:none; }
+  .seq-insert-menu{
+    display:none; flex-wrap:wrap; gap:6px; justify-content:center; align-items:center;
+    background: var(--card); border:1px solid var(--thread); border-radius:6px;
+    padding:8px; margin-top:6px; width:100%;
+  }
+  .seq-insert-menu .bloco-quick-btn{ font-size:12px; padding:5px 10px; }
+  .seq-insert-menu .bloco-quick-btn.musica{ border-left:4px solid #7c4dff; }
   .form-footer{ display:flex; gap:10px; justify-content:flex-end; margin-top: 4px; }
 
   /* ===== SONG SEARCH VIEW ===== */
@@ -392,13 +410,10 @@
 
     <div class="form-section">
       <h3>Roteiro (ordem de execução)</h3>
-      <p style="font-size:12px; color:var(--ink-soft); margin:-6px 0 14px;">Monte o roteiro na ordem real do programa: clique no quadro pra adicioná-lo com o texto, ou em música, na sequência em que acontecem. Uma música colocada logo após um bloco significa que ela toca depois daquele texto.</p>
+      <p style="font-size:12px; color:var(--ink-soft); margin:-6px 0 14px;">Monte o roteiro na ordem real do programa: clique no "+" no ponto exato onde algo deve entrar — início, entre dois itens, ou no fim — e escolha o bloco ou a música. Dá pra inserir ou trocar algo no meio do roteiro sem precisar mover nada depois.</p>
       <div id="sequenciaRows"></div>
-      <div id="blocoQuickButtons" style="display:flex; flex-wrap:wrap; gap:8px; margin-top:10px;"></div>
       <div style="display:flex; gap:10px; margin-top:10px; flex-wrap:wrap; align-items:center;">
-        <button class="add-music-btn" id="btnAddBlocoAvulso" type="button">+ Bloco avulso</button>
-        <button class="add-music-btn" id="btnAddMusic" type="button">+ Música</button>
-        <button type="button" id="btnNovoBlocoFixo" style="background:none; border:none; color:var(--ink-soft); text-decoration:underline; cursor:pointer; font-size:12px; padding:4px 0; margin-left:auto;">+ criar novo tipo de bloco fixo</button>
+        <button type="button" id="btnNovoBlocoFixo" style="background:none; border:none; color:var(--ink-soft); text-decoration:underline; cursor:pointer; font-size:12px; padding:4px 0;">+ criar novo tipo de bloco fixo</button>
       </div>
     </div>
 
@@ -751,12 +766,7 @@ document.getElementById('btnParsearColado').addEventListener('click', ()=>{
 
   if(parsed.tema) document.getElementById('fTema').value = parsed.tema;
 
-  document.getElementById('sequenciaRows').innerHTML = '';
-  if(parsed.roteiro.length){
-    parsed.roteiro.forEach(addSequenceRow);
-  } else {
-    addSequenceRow({ tipo:'bloco', chave:'abertura', texto:'' });
-  }
+  renderSequenciaInicial(parsed.roteiro);
 
   const totalBlocos = parsed.roteiro.filter(i=>i.tipo==='bloco').length;
   const totalMusicas = parsed.roteiro.filter(i=>i.tipo==='musica').length;
@@ -767,7 +777,9 @@ document.getElementById('btnParsearColado').addEventListener('click', ()=>{
 });
 
 /* ---------- Construtor de sequência (roteiro = ordem real de execução) ---------- */
-function addSequenceRow(item){
+
+// Cria o elemento de uma linha (bloco ou música), sem inserir no container ainda.
+function criarLinhaSequencia(item){
   item = item || { tipo:'bloco', chave:'abertura', texto:'' };
   const row = document.createElement('div');
   row.className = 'seq-row ' + (item.tipo === 'musica' ? 'tipo-musica' : 'tipo-bloco');
@@ -806,58 +818,109 @@ function addSequenceRow(item){
     });
   }
 
-  row.querySelector('.seq-remove').addEventListener('click', ()=> row.remove());
+  row.querySelector('.seq-remove').addEventListener('click', ()=>{
+    const rows = [...document.querySelectorAll('#sequenciaRows .seq-row')].filter(r=>r!==row);
+    reconstruirSequenciaDOM(rows);
+  });
   row.querySelectorAll('.seq-move').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       const dir = parseInt(btn.dataset.dir, 10);
-      const container = document.getElementById('sequenciaRows');
-      const rows = [...container.children];
+      const rows = [...document.querySelectorAll('#sequenciaRows .seq-row')];
       const i = rows.indexOf(row);
       const j = i + dir;
       if(j < 0 || j >= rows.length) return;
-      if(dir < 0) container.insertBefore(row, rows[j]);
-      else container.insertBefore(rows[j], row);
+      [rows[i], rows[j]] = [rows[j], rows[i]];
+      reconstruirSequenciaDOM(rows);
     });
   });
 
-  document.getElementById('sequenciaRows').appendChild(row);
+  return row;
 }
-function renderBlocoQuickButtons(){
-  const container = document.getElementById('blocoQuickButtons');
-  const fixos = Object.entries(BLOCO_LABELS).filter(([k])=>k!=='extra');
-  const customs = (state.blocosCustom||[]).map(b=>[b.chave, b.label]);
-  container.innerHTML = [...fixos, ...customs].map(([chave,label])=>{
-    const cor = getBlocoCor(chave);
-    const isCustom = (state.blocosCustom||[]).some(b=>b.chave===chave);
-    return `<span style="display:inline-flex; align-items:center;">
-      <button type="button" class="bloco-quick-btn" style="--bloco-cor:${cor};" data-chave="${chave}">${escapeHtml(label)}</button>
-      ${isCustom ? `<button type="button" class="remove-tipo" data-remover="${chave}" title="Remover este tipo de bloco fixo">×</button>` : ''}
-    </span>`;
-  }).join('');
 
-  container.querySelectorAll('.bloco-quick-btn').forEach(btn=>{
-    btn.addEventListener('click', ()=> addSequenceRow({ tipo:'bloco', chave: btn.dataset.chave, texto:'' }));
-  });
-  container.querySelectorAll('.remove-tipo').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      const chave = btn.dataset.remover;
-      if(!confirm('Remover este tipo de bloco fixo da lista de botões rápidos? Blocos já criados com ele não são afetados.')) return;
-      state.blocosCustom = state.blocosCustom.filter(b=>b.chave!==chave);
-      persist();
-      renderBlocoQuickButtons();
+// Cria um ponto de inserção ("+") — ao clicar, abre um menu ali mesmo com as
+// opções de bloco/música, e insere o item exatamente naquela posição da sequência.
+function criarSlotInsercao(){
+  const wrap = document.createElement('div');
+  wrap.className = 'seq-insert-slot';
+  wrap.innerHTML = `
+    <button type="button" class="seq-insert-toggle" title="Inserir aqui">+</button>
+    <div class="seq-insert-menu"></div>
+  `;
+  const toggle = wrap.querySelector('.seq-insert-toggle');
+  const menu = wrap.querySelector('.seq-insert-menu');
+
+  function fecharMenu(){
+    menu.style.display = 'none';
+    menu.innerHTML = '';
+  }
+
+  function inserirAqui(item){
+    const idx = [...document.querySelectorAll('#sequenciaRows .seq-insert-slot')].indexOf(wrap);
+    const rows = [...document.querySelectorAll('#sequenciaRows .seq-row')];
+    rows.splice(idx, 0, criarLinhaSequencia(item));
+    reconstruirSequenciaDOM(rows);
+  }
+
+  function abrirMenu(){
+    document.querySelectorAll('.seq-insert-menu').forEach(m=>{ m.style.display='none'; m.innerHTML=''; });
+    const fixos = Object.entries(BLOCO_LABELS).filter(([k])=>k!=='extra');
+    const customs = (state.blocosCustom||[]).map(b=>[b.chave, b.label]);
+    const botoesBloco = [...fixos, ...customs].map(([chave,label])=>
+      `<button type="button" class="bloco-quick-btn" style="--bloco-cor:${getBlocoCor(chave)};" data-tipo="bloco" data-chave="${chave}">${escapeHtml(label)}</button>`
+    ).join('');
+    menu.innerHTML = `
+      ${botoesBloco}
+      <button type="button" class="bloco-quick-btn" style="--bloco-cor:${getBlocoCor('extra')};" data-tipo="extra">+ Bloco avulso</button>
+      <button type="button" class="bloco-quick-btn musica" data-tipo="musica">🎵 Música</button>
+    `;
+    menu.querySelectorAll('button').forEach(b=>{
+      b.addEventListener('click', ()=>{
+        if(b.dataset.tipo === 'musica'){
+          inserirAqui({ tipo:'musica', titulo:'', artista:'' });
+        } else if(b.dataset.tipo === 'extra'){
+          const nome = prompt('Nome deste bloco avulso (ex.: "Homenagem a Seu Joaquim"):', '');
+          if(nome === null) return;
+          inserirAqui({ tipo:'bloco', chave:'extra', nome: nome.trim(), texto:'' });
+        } else {
+          inserirAqui({ tipo:'bloco', chave: b.dataset.chave, texto:'' });
+        }
+      });
     });
+    menu.style.display = 'flex';
+  }
+
+  toggle.addEventListener('click', ()=>{
+    const aberto = menu.style.display === 'flex';
+    fecharMenu();
+    if(!aberto) abrirMenu();
+  });
+
+  return wrap;
+}
+
+// Reconstrói o container inteiro a partir de uma lista de elementos de linha já
+// existentes (preserva os valores digitados, já que são os mesmos elementos DOM),
+// intercalando um ponto de inserção antes da primeira, entre cada par e depois da última.
+function reconstruirSequenciaDOM(rowElements){
+  const container = document.getElementById('sequenciaRows');
+  container.innerHTML = '';
+  container.appendChild(criarSlotInsercao());
+  rowElements.forEach(row=>{
+    container.appendChild(row);
+    container.appendChild(criarSlotInsercao());
   });
 }
 
-document.getElementById('btnAddBlocoAvulso').addEventListener('click', ()=>{
-  const nome = prompt('Nome deste bloco avulso (ex.: "Homenagem a Seu Joaquim"):', '');
-  if(nome === null) return;
-  addSequenceRow({ tipo:'bloco', chave:'extra', nome: nome.trim(), texto:'' });
-});
-document.getElementById('btnAddMusic').addEventListener('click', ()=> addSequenceRow({ tipo:'musica', titulo:'', artista:'' }));
+// Monta a sequência do zero a partir de uma lista de itens (roteiro) — usado no
+// reset do formulário, ao editar uma edição existente e ao colar um roteiro pronto.
+function renderSequenciaInicial(itens){
+  const rows = (itens && itens.length ? itens : [{ tipo:'bloco', chave:'abertura', texto:'' }])
+    .map(criarLinhaSequencia);
+  reconstruirSequenciaDOM(rows);
+}
 
 document.getElementById('btnNovoBlocoFixo').addEventListener('click', ()=>{
-  const nome = prompt('Nome do novo tipo de bloco fixo (vai aparecer como botão pra usar em qualquer edição futura):', '');
+  const nome = prompt('Nome do novo tipo de bloco fixo (vai aparecer nas opções de inserir bloco em qualquer edição futura):', '');
   if(!nome || !nome.trim()) return;
   let chave = slugify(nome.trim());
   // Garante chave única, mesmo se o nome gerar a mesma slug de outro bloco já existente
@@ -868,8 +931,7 @@ document.getElementById('btnNovoBlocoFixo').addEventListener('click', ()=>{
   const cor = PALETA_BLOCO_CUSTOM[state.blocosCustom.length % PALETA_BLOCO_CUSTOM.length];
   state.blocosCustom.push({ chave, label: nome.trim(), cor });
   persist();
-  renderBlocoQuickButtons();
-  addSequenceRow({ tipo:'bloco', chave, texto:'' });
+  alert(`Tipo de bloco "${nome.trim()}" criado. Ele já aparece nas opções de qualquer ponto de inserção ("+") do roteiro.`);
 });
 
 function lerSequenciaDoFormulario(){
@@ -895,9 +957,7 @@ function resetForm(){
   document.getElementById('fNumero').value = '';
   document.getElementById('fTema').value = '';
   document.getElementById('fObs').value = '';
-  document.getElementById('sequenciaRows').innerHTML = '';
-  renderBlocoQuickButtons();
-  addSequenceRow({ tipo:'bloco', chave:'abertura', texto:'' });
+  renderSequenciaInicial([{ tipo:'bloco', chave:'abertura', texto:'' }]);
 }
 
 document.getElementById('btnCancelar').addEventListener('click', ()=>{
@@ -1072,7 +1132,6 @@ function editarEdicao(id){
   document.getElementById('fObs').value = e.obs || '';
 
   document.getElementById('sequenciaRows').innerHTML = '';
-  renderBlocoQuickButtons();
   let roteiro = e.roteiro;
   if(!Array.isArray(roteiro)){
     // Compatibilidade com edições salvas no formato antigo (blocos fixos + musicas soltas,
@@ -1085,11 +1144,7 @@ function editarEdicao(id){
     });
     (e.musicas||[]).forEach(m=> roteiro.push({ tipo:'musica', titulo:m.titulo||'', artista:m.artista||'' }));
   }
-  if(roteiro.length){
-    roteiro.forEach(addSequenceRow);
-  } else {
-    addSequenceRow({ tipo:'bloco', chave:'abertura', texto:'' });
-  }
+  renderSequenciaInicial(roteiro);
   document.querySelector('nav.tabs button[data-view="nova"]').click();
 }
 
