@@ -218,10 +218,49 @@
   }
   .field textarea{ resize: vertical; min-height: 70px; font-family:'Karla',sans-serif; line-height:1.5; }
   .music-row{
-    display:grid; grid-template-columns: 1.3fr 1.3fr 1fr auto; gap:8px; margin-bottom:8px; align-items:center;
+    display:grid; grid-template-columns: 1.5fr 1.5fr auto; gap:8px; margin-bottom:8px; align-items:center;
   }
-  .music-row input, .music-row select{
+  .music-row input{
     padding:8px 10px; border-radius:4px; border:1.5px solid var(--thread); background:var(--paper);
+    font-size:13px; font-family:'Karla',sans-serif;
+  }
+  .seq-row{
+    border:1.5px solid var(--thread); border-radius:6px; padding:12px 14px; margin-bottom:10px;
+    background: var(--paper); position:relative;
+  }
+  .seq-row.tipo-musica{ background: var(--forest-tint); }
+  .seq-top{ display:flex; align-items:center; gap:8px; margin-bottom:8px; flex-wrap:wrap; }
+  .seq-tag{
+    font-family:'IBM Plex Mono',monospace; font-size:10.5px; text-transform:uppercase; letter-spacing:1px;
+    font-weight:700; padding:3px 8px; border-radius:10px; color:#fff; flex-shrink:0;
+  }
+  .seq-tag.bloco{ background: var(--forest); }
+  .seq-tag.musica{ background: var(--wine); }
+  .seq-move{
+    background:none; border:1px solid var(--thread); border-radius:3px; width:26px; height:26px;
+    cursor:pointer; font-weight:700; color: var(--ink-soft); margin-left:auto;
+  }
+  .seq-move:hover{ background: var(--card); }
+  .seq-remove{
+    background: var(--wine-tint); color: var(--wine); border:none; border-radius:3px;
+    width:26px; height:26px; cursor:pointer; font-weight:700;
+  }
+  .seq-row select{
+    padding:7px 9px; border-radius:4px; border:1.5px solid var(--thread); background:var(--card);
+    font-size:13px; font-family:'Karla',sans-serif;
+  }
+  .seq-row input.seq-nome-extra{
+    padding:7px 9px; border-radius:4px; border:1.5px solid var(--thread); background:var(--card);
+    font-size:13px; font-family:'Karla',sans-serif; flex:1; min-width:160px;
+  }
+  .seq-row textarea{
+    width:100%; padding:9px 11px; border-radius:4px; border:1.5px solid var(--thread);
+    background:var(--card); font-family:'Karla',sans-serif; font-size:13.5px; line-height:1.5;
+    min-height:70px; resize:vertical;
+  }
+  .seq-row .music-fields{ display:grid; grid-template-columns: 1.5fr 1.5fr; gap:8px; }
+  .seq-row .music-fields input{
+    padding:8px 10px; border-radius:4px; border:1.5px solid var(--thread); background:var(--card);
     font-size:13px; font-family:'Karla',sans-serif;
   }
   .remove-music{
@@ -269,7 +308,7 @@
   @media (max-width: 640px){
     .grid2{ grid-template-columns: 1fr; }
     .music-row{ grid-template-columns: 1fr 1fr; }
-    .music-row select, .music-row .remove-music{ grid-column: span 1; }
+    .music-row .remove-music{ grid-column: span 1; }
     .card-top{ flex-direction: column; }
     .card-actions{ margin-left:0; }
   }
@@ -343,49 +382,13 @@
     </div>
 
     <div class="form-section">
-      <h3>Blocos do roteiro</h3>
-      <div class="field">
-        <label>Abertura</label>
-        <textarea id="fAbertura" placeholder="Texto da abertura..."></textarea>
+      <h3>Roteiro (ordem de execução)</h3>
+      <p style="font-size:12px; color:var(--ink-soft); margin:-6px 0 14px;">Monte o roteiro na ordem real do programa: adicione blocos de texto e músicas na sequência em que acontecem. Uma música colocada logo após um bloco significa que ela toca depois daquele texto.</p>
+      <div id="sequenciaRows"></div>
+      <div style="display:flex; gap:10px; margin-top:8px;">
+        <button class="add-music-btn" id="btnAddBloco" type="button">+ Adicionar bloco</button>
+        <button class="add-music-btn" id="btnAddMusic" type="button">+ Adicionar música</button>
       </div>
-      <div class="field">
-        <label>Capelinha da Vila</label>
-        <textarea id="fCapelinha"></textarea>
-      </div>
-      <div class="field">
-        <label>Pé na Roça</label>
-        <textarea id="fPeNaRoca"></textarea>
-      </div>
-      <div class="field">
-        <label>Vila de Poesia</label>
-        <textarea id="fPoesia"></textarea>
-      </div>
-      <div class="field">
-        <label>No Balcão da Vendinha</label>
-        <textarea id="fVendinha"></textarea>
-      </div>
-      <div class="field">
-        <label>Feira Livre</label>
-        <textarea id="fFeira"></textarea>
-      </div>
-      <div class="field">
-        <label>Vila Mundo</label>
-        <textarea id="fMundo"></textarea>
-      </div>
-      <div class="field">
-        <label>Vila dos Sonhos</label>
-        <textarea id="fSonho"></textarea>
-      </div>
-      <div class="field">
-        <label>Encerramento</label>
-        <textarea id="fEncerramento"></textarea>
-      </div>
-    </div>
-
-    <div class="form-section">
-      <h3>Músicas programadas</h3>
-      <div id="musicRows"></div>
-      <button class="add-music-btn" id="btnAddMusic" type="button">+ Adicionar música</button>
     </div>
 
     <div class="form-section">
@@ -442,7 +445,7 @@ const LOCAL_KEY = 'vilabrasil_edicoes_v1';
 })();
 
 let state = {
-  edicoes: [] // { id, numero, data, tema, blocos:{...}, musicas:[{titulo,artista,bloco}], obs, criadoEm }
+  edicoes: [] // { id, numero, data, tema, blocos:{...}, musicas:[{titulo,artista}] (ordem = ordem de execução), obs, criadoEm }
 };
 
 let tokenClient = null;
@@ -459,7 +462,8 @@ const BLOCO_LABELS = {
   feiraLivre: 'Feira Livre',
   vilaMundo: 'Vila Mundo',
   sonho: 'Vila dos Sonhos',
-  encerramento: 'Encerramento'
+  encerramento: 'Encerramento',
+  extra: 'Bloco avulso'
 };
 
 const BLOCO_COLORS = {
@@ -471,7 +475,8 @@ const BLOCO_COLORS = {
   feiraLivre: '#7a2323',
   vilaMundo: '#1565c0',
   sonho: '#0d1b4b',
-  encerramento: '#1a1a2e'
+  encerramento: '#1a1a2e',
+  extra: '#37474f'
 };
 
 /* ---------- Utilidades ---------- */
@@ -631,10 +636,25 @@ function parseRoteiroHTML(html){
   if(dadosScript){
     try{
       const dados = JSON.parse(dadosScript.textContent);
+      let roteiro = [];
+      if(Array.isArray(dados.roteiro)){
+        // Formato novo: sequência única já na ordem real de execução.
+        roteiro = dados.roteiro;
+      } else {
+        // Compatibilidade com o formato antigo (blocos fixos + musicas soltas):
+        // não há como saber a posição real das músicas, então elas entram todas ao final.
+        const chaves = ['abertura','capelinha','peNaRoca','poesia','noBalcaoDaVendinha','feiraLivre','vilaMundo','sonho','encerramento'];
+        chaves.forEach(chave=>{
+          const texto = (dados.blocos||{})[chave];
+          if(texto) roteiro.push({ tipo:'bloco', chave, texto });
+        });
+        (Array.isArray(dados.musicas)?dados.musicas:[]).forEach(m=>{
+          roteiro.push({ tipo:'musica', titulo:m.titulo||'', artista:m.artista||'' });
+        });
+      }
       return {
         tema: (dados.tema || '').trim(),
-        blocos: dados.blocos || {},
-        musicas: Array.isArray(dados.musicas) ? dados.musicas : [],
+        roteiro,
         origem: 'estruturado'
       };
     }catch(e){
@@ -651,8 +671,7 @@ function parseRoteiroHTML(html){
   let tema = (doc.querySelector('title')?.textContent || '').trim();
   tema = tema.replace(/^Vila Brasil\s*[—-]\s*/i, '').trim();
 
-  const blocos = {};
-  const musicas = [];
+  const roteiro = [];
 
   pages.forEach(page=>{
     const amostra = normalizar(page.textContent.slice(0, 400));
@@ -668,8 +687,10 @@ function parseRoteiroHTML(html){
       .replace(/\s+\n/g,'\n')
       .trim();
 
-    if(matchedKey){
-      blocos[matchedKey] = (blocos[matchedKey] ? blocos[matchedKey] + '\n\n' : '') + texto;
+    // A página inteira vira um item de bloco (com o texto, sem as musica-box); as músicas
+    // encontradas na mesma página entram logo depois, preservando a ordem real de execução.
+    if(matchedKey || texto){
+      roteiro.push({ tipo:'bloco', chave: matchedKey || 'extra', nome: matchedKey ? undefined : 'Bloco', texto });
     }
 
     page.querySelectorAll('.musica-box').forEach(box=>{
@@ -677,11 +698,11 @@ function parseRoteiroHTML(html){
       const titulo = strong ? strong.textContent.trim() : (box.textContent.split('\n')[0] || '').trim();
       let resto = box.textContent.replace(titulo,'').trim();
       let artista = resto.split(/[—·]/)[0].replace(/\(.*?\)/g,'').replace(/\d{1,2}:\d{2}/g,'').trim();
-      if(titulo) musicas.push({ titulo, artista, bloco: matchedKey || 'abertura' });
+      if(titulo) roteiro.push({ tipo:'musica', titulo, artista });
     });
   });
 
-  return { tema, blocos, musicas, origem: 'heuristico' };
+  return { tema, roteiro, origem: 'heuristico' };
 }
 
 document.getElementById('btnParsearColado').addEventListener('click', ()=>{
@@ -689,44 +710,98 @@ document.getElementById('btnParsearColado').addEventListener('click', ()=>{
   if(!html.trim()){ alert('Cole o HTML do roteiro antes de analisar.'); return; }
 
   const parsed = parseRoteiroHTML(html);
-  const idMap = { abertura:'fAbertura', capelinha:'fCapelinha', peNaRoca:'fPeNaRoca', poesia:'fPoesia', noBalcaoDaVendinha:'fVendinha', feiraLivre:'fFeira', vilaMundo:'fMundo', sonho:'fSonho', encerramento:'fEncerramento' };
 
   if(parsed.tema) document.getElementById('fTema').value = parsed.tema;
-  Object.entries(idMap).forEach(([key, fieldId])=>{
-    if(parsed.blocos[key]) document.getElementById(fieldId).value = parsed.blocos[key];
-  });
 
-  document.getElementById('musicRows').innerHTML = '';
-  if(parsed.musicas.length){
-    parsed.musicas.forEach(addMusicRow);
+  document.getElementById('sequenciaRows').innerHTML = '';
+  if(parsed.roteiro.length){
+    parsed.roteiro.forEach(addSequenceRow);
   } else {
-    addMusicRow();
+    addSequenceRow({ tipo:'bloco', chave:'abertura', texto:'' });
   }
 
-  const encontrouBlocos = Object.values(parsed.blocos).filter(Boolean).length;
+  const totalBlocos = parsed.roteiro.filter(i=>i.tipo==='bloco').length;
+  const totalMusicas = parsed.roteiro.filter(i=>i.tipo==='musica').length;
   const modo = parsed.origem === 'estruturado'
-    ? 'dados estruturados encontrados — extração exata.'
-    : 'roteiro sem dados estruturados — extração aproximada, revise com atenção.';
-  alert(`Análise concluída (${modo})\n${encontrouBlocos} bloco(s) e ${parsed.musicas.length} música(s) identificados.`);
+    ? 'dados estruturados encontrados — extração exata, já na ordem real de execução.'
+    : 'roteiro sem dados estruturados — extração aproximada por página, revise a ordem com atenção.';
+  alert(`Análise concluída (${modo})\n${totalBlocos} bloco(s) e ${totalMusicas} música(s) identificados.`);
 });
 
-/* ---------- Linhas de música no formulário ---------- */
-function addMusicRow(data){
-  data = data || { titulo:'', artista:'', bloco:'abertura' };
+/* ---------- Construtor de sequência (roteiro = ordem real de execução) ---------- */
+function addSequenceRow(item){
+  item = item || { tipo:'bloco', chave:'abertura', texto:'' };
   const row = document.createElement('div');
-  row.className = 'music-row';
-  row.innerHTML = `
-    <input type="text" class="m-titulo" placeholder="Título da música" value="${escapeHtml(data.titulo)}">
-    <input type="text" class="m-artista" placeholder="Artista" value="${escapeHtml(data.artista)}">
-    <select class="m-bloco">
-      ${Object.entries(BLOCO_LABELS).map(([k,label])=>`<option value="${k}" ${data.bloco===k?'selected':''}>${label}</option>`).join('')}
-    </select>
-    <button type="button" class="remove-music" title="Remover">×</button>
-  `;
-  row.querySelector('.remove-music').addEventListener('click', ()=> row.remove());
-  document.getElementById('musicRows').appendChild(row);
+  row.className = 'seq-row ' + (item.tipo === 'musica' ? 'tipo-musica' : 'tipo-bloco');
+  row.dataset.tipo = item.tipo;
+
+  if(item.tipo === 'musica'){
+    row.innerHTML = `
+      <div class="seq-top">
+        <span class="seq-tag musica">Música</span>
+        <button type="button" class="seq-move" data-dir="-1" title="Mover para cima">▲</button>
+        <button type="button" class="seq-move" data-dir="1" title="Mover para baixo">▼</button>
+        <button type="button" class="seq-remove" title="Remover">×</button>
+      </div>
+      <div class="music-fields">
+        <input type="text" class="s-titulo" placeholder="Título da música" value="${escapeHtml(item.titulo||'')}">
+        <input type="text" class="s-artista" placeholder="Artista" value="${escapeHtml(item.artista||'')}">
+      </div>
+    `;
+  } else {
+    const chave = item.chave || 'abertura';
+    row.innerHTML = `
+      <div class="seq-top">
+        <span class="seq-tag bloco">Bloco</span>
+        <select class="s-chave">
+          ${Object.entries(BLOCO_LABELS).map(([k,label])=>`<option value="${k}" ${chave===k?'selected':''}>${label}</option>`).join('')}
+        </select>
+        <input type="text" class="seq-nome-extra" placeholder="Nome do bloco avulso" value="${escapeHtml(item.nome||'')}" style="${chave==='extra'?'':'display:none;'}">
+        <button type="button" class="seq-move" data-dir="-1" title="Mover para cima">▲</button>
+        <button type="button" class="seq-move" data-dir="1" title="Mover para baixo">▼</button>
+        <button type="button" class="seq-remove" title="Remover">×</button>
+      </div>
+      <textarea class="s-texto" placeholder="Texto do bloco...">${item.texto||''}</textarea>
+    `;
+    row.querySelector('.s-chave').addEventListener('change', (ev)=>{
+      row.querySelector('.seq-nome-extra').style.display = ev.target.value === 'extra' ? '' : 'none';
+    });
+  }
+
+  row.querySelector('.seq-remove').addEventListener('click', ()=> row.remove());
+  row.querySelectorAll('.seq-move').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const dir = parseInt(btn.dataset.dir, 10);
+      const container = document.getElementById('sequenciaRows');
+      const rows = [...container.children];
+      const i = rows.indexOf(row);
+      const j = i + dir;
+      if(j < 0 || j >= rows.length) return;
+      if(dir < 0) container.insertBefore(row, rows[j]);
+      else container.insertBefore(rows[j], row);
+    });
+  });
+
+  document.getElementById('sequenciaRows').appendChild(row);
 }
-document.getElementById('btnAddMusic').addEventListener('click', ()=> addMusicRow());
+document.getElementById('btnAddBloco').addEventListener('click', ()=> addSequenceRow({ tipo:'bloco', chave:'abertura', texto:'' }));
+document.getElementById('btnAddMusic').addEventListener('click', ()=> addSequenceRow({ tipo:'musica', titulo:'', artista:'' }));
+
+function lerSequenciaDoFormulario(){
+  return [...document.querySelectorAll('#sequenciaRows .seq-row')].map(row=>{
+    if(row.dataset.tipo === 'musica'){
+      return {
+        tipo: 'musica',
+        titulo: row.querySelector('.s-titulo').value.trim(),
+        artista: row.querySelector('.s-artista').value.trim()
+      };
+    }
+    const chave = row.querySelector('.s-chave').value;
+    const item = { tipo:'bloco', chave, texto: row.querySelector('.s-texto').value };
+    if(chave === 'extra') item.nome = row.querySelector('.seq-nome-extra').value.trim();
+    return item;
+  }).filter(item => item.tipo === 'musica' ? item.titulo : true);
+}
 
 function resetForm(){
   document.getElementById('formTitle').textContent = 'Nova edição';
@@ -734,11 +809,9 @@ function resetForm(){
   document.getElementById('fData').value = '';
   document.getElementById('fNumero').value = '';
   document.getElementById('fTema').value = '';
-  ['fAbertura','fCapelinha','fPeNaRoca','fPoesia','fVendinha','fFeira','fMundo','fSonho','fEncerramento','fObs'].forEach(id=>{
-    document.getElementById(id).value = '';
-  });
-  document.getElementById('musicRows').innerHTML = '';
-  addMusicRow();
+  document.getElementById('fObs').value = '';
+  document.getElementById('sequenciaRows').innerHTML = '';
+  addSequenceRow({ tipo:'bloco', chave:'abertura', texto:'' });
 }
 
 document.getElementById('btnCancelar').addEventListener('click', ()=>{
@@ -750,29 +823,14 @@ document.getElementById('btnSalvar').addEventListener('click', ()=>{
   const tema = document.getElementById('fTema').value.trim();
   if(!tema){ alert('Preencha o tema do programa antes de salvar.'); return; }
 
-  const musicas = [...document.querySelectorAll('#musicRows .music-row')].map(row=>({
-    titulo: row.querySelector('.m-titulo').value.trim(),
-    artista: row.querySelector('.m-artista').value.trim(),
-    bloco: row.querySelector('.m-bloco').value
-  })).filter(m => m.titulo);
+  const roteiro = lerSequenciaDoFormulario();
 
   const entry = {
     id: document.getElementById('editId').value || uid(),
     numero: document.getElementById('fNumero').value.trim(),
     data: document.getElementById('fData').value,
     tema,
-    blocos: {
-      abertura: document.getElementById('fAbertura').value,
-      capelinha: document.getElementById('fCapelinha').value,
-      peNaRoca: document.getElementById('fPeNaRoca').value,
-      poesia: document.getElementById('fPoesia').value,
-      noBalcaoDaVendinha: document.getElementById('fVendinha').value,
-      feiraLivre: document.getElementById('fFeira').value,
-      vilaMundo: document.getElementById('fMundo').value,
-      sonho: document.getElementById('fSonho').value,
-      encerramento: document.getElementById('fEncerramento').value
-    },
-    musicas,
+    roteiro,
     obs: document.getElementById('fObs').value,
     criadoEm: Date.now()
   };
@@ -812,8 +870,11 @@ function renderLista(){
   }
   if(termo){
     lista = lista.filter(e=>{
+      const roteiro = Array.isArray(e.roteiro) ? e.roteiro : [];
       const alvo = [
         e.tema, e.numero, e.obs,
+        ...roteiro.filter(i=>i.tipo==='bloco').map(i=>i.texto||''),
+        ...roteiro.filter(i=>i.tipo==='musica').map(m=>m.titulo+' '+m.artista),
         ...Object.values(e.blocos||{}),
         ...(e.musicas||[]).map(m=>m.titulo+' '+m.artista)
       ].join(' ');
@@ -833,16 +894,26 @@ function renderLista(){
   }
 
   container.innerHTML = lista.map(e=>{
-    const musicasHtml = (e.musicas||[]).map(m=>
+    let roteiro = Array.isArray(e.roteiro) ? e.roteiro : null;
+    if(!roteiro){
+      roteiro = [];
+      const chaves = ['abertura','capelinha','peNaRoca','poesia','noBalcaoDaVendinha','feiraLivre','vilaMundo','sonho','encerramento'];
+      chaves.forEach(chave=>{
+        const texto = (e.blocos||{})[chave];
+        if(texto) roteiro.push({ tipo:'bloco', chave, texto });
+      });
+      (e.musicas||[]).forEach(m=> roteiro.push({ tipo:'musica', titulo:m.titulo||'', artista:m.artista||'' }));
+    }
+
+    const musicasHtml = roteiro.filter(i=>i.tipo==='musica').map(m=>
       `<span class="song-chip">${escapeHtml(m.titulo)}${m.artista? ' — '+escapeHtml(m.artista):''}</span>`
     ).join('');
 
-    const blocosHtml = Object.entries(BLOCO_LABELS).map(([key,label])=>{
-      const texto = (e.blocos||{})[key];
-      if(!texto) return '';
+    const blocosHtml = roteiro.filter(i=>i.tipo==='bloco' && i.texto && i.texto.trim()).map(i=>{
+      const label = i.chave === 'extra' ? (i.nome || 'Bloco avulso') : (BLOCO_LABELS[i.chave] || i.chave);
       return `<div class="bloco-row">
-        <span class="bloco-label">${label}</span>
-        <div class="bloco-text">${escapeHtml(texto)}</div>
+        <span class="bloco-label">${escapeHtml(label)}</span>
+        <div class="bloco-text">${escapeHtml(i.texto)}</div>
       </div>`;
     }).join('');
 
@@ -888,18 +959,26 @@ function editarEdicao(id){
   document.getElementById('fData').value = e.data || '';
   document.getElementById('fNumero').value = e.numero || '';
   document.getElementById('fTema').value = e.tema || '';
-  document.getElementById('fAbertura').value = e.blocos?.abertura || '';
-  document.getElementById('fCapelinha').value = e.blocos?.capelinha || '';
-  document.getElementById('fPeNaRoca').value = e.blocos?.peNaRoca || '';
-  document.getElementById('fPoesia').value = e.blocos?.poesia || '';
-  document.getElementById('fVendinha').value = e.blocos?.noBalcaoDaVendinha || '';
-  document.getElementById('fFeira').value = e.blocos?.feiraLivre || '';
-  document.getElementById('fMundo').value = e.blocos?.vilaMundo || '';
-  document.getElementById('fSonho').value = e.blocos?.sonho || '';
-  document.getElementById('fEncerramento').value = e.blocos?.encerramento || '';
   document.getElementById('fObs').value = e.obs || '';
-  document.getElementById('musicRows').innerHTML = '';
-  (e.musicas && e.musicas.length ? e.musicas : [{titulo:'',artista:'',bloco:'abertura'}]).forEach(addMusicRow);
+
+  document.getElementById('sequenciaRows').innerHTML = '';
+  let roteiro = e.roteiro;
+  if(!Array.isArray(roteiro)){
+    // Compatibilidade com edições salvas no formato antigo (blocos fixos + musicas soltas,
+    // de antes da mudança pra sequência única) — sem posição real, músicas entram ao final.
+    roteiro = [];
+    const chaves = ['abertura','capelinha','peNaRoca','poesia','noBalcaoDaVendinha','feiraLivre','vilaMundo','sonho','encerramento'];
+    chaves.forEach(chave=>{
+      const texto = (e.blocos||{})[chave];
+      if(texto) roteiro.push({ tipo:'bloco', chave, texto });
+    });
+    (e.musicas||[]).forEach(m=> roteiro.push({ tipo:'musica', titulo:m.titulo||'', artista:m.artista||'' }));
+  }
+  if(roteiro.length){
+    roteiro.forEach(addSequenceRow);
+  } else {
+    addSequenceRow({ tipo:'bloco', chave:'abertura', texto:'' });
+  }
   document.querySelector('nav.tabs button[data-view="nova"]').click();
 }
 
@@ -907,54 +986,72 @@ function imprimirEdicao(id){
   const e = state.edicoes.find(x=>x.id===id);
   if(!e) return;
 
-  const blocosComConteudo = Object.keys(BLOCO_LABELS).filter(key=>{
-    const texto = (e.blocos && e.blocos[key]) ? e.blocos[key].trim() : '';
-    const musicasDoBloco = (e.musicas||[]).filter(m=>m.bloco===key);
-    return texto || musicasDoBloco.length;
+  let roteiro = Array.isArray(e.roteiro) ? e.roteiro : null;
+  if(!roteiro){
+    // Compatibilidade com edições salvas no formato antigo (blocos fixos + musicas soltas) —
+    // sem posição real, as músicas entram todas ao final do roteiro impresso.
+    roteiro = [];
+    const chaves = ['abertura','capelinha','peNaRoca','poesia','noBalcaoDaVendinha','feiraLivre','vilaMundo','sonho','encerramento'];
+    chaves.forEach(chave=>{
+      const texto = (e.blocos||{})[chave];
+      if(texto) roteiro.push({ tipo:'bloco', chave, texto });
+    });
+    (e.musicas||[]).forEach(m=> roteiro.push({ tipo:'musica', titulo:m.titulo||'', artista:m.artista||'' }));
+  }
+
+  // Agrupa a sequência real em "páginas": cada bloco inicia uma página nova, e toda música
+  // que vem logo em seguida (antes do próximo bloco) entra na mesma página — é assim que fica
+  // claro, olhando o roteiro impresso, que música toca depois de qual texto.
+  const paginas = [];
+  let atual = null;
+  roteiro.forEach(item=>{
+    if(item.tipo === 'bloco'){
+      atual = {
+        chave: item.chave,
+        label: item.chave === 'extra' ? (item.nome || 'Bloco avulso') : (BLOCO_LABELS[item.chave] || item.chave),
+        cor: BLOCO_COLORS[item.chave] || '#333',
+        texto: item.texto || '',
+        musicas: []
+      };
+      paginas.push(atual);
+    } else if(item.tipo === 'musica'){
+      if(!atual){
+        // Música antes de qualquer bloco (raro) — abre uma página só pra ela.
+        atual = { chave:null, label:'Abertura Musical', cor:'#555', texto:'', musicas:[] };
+        paginas.push(atual);
+      }
+      atual.musicas.push(item);
+    }
   });
 
-  let contadorMusica = 0;
-
-  // ---- Folha de rosto: tabela-resumo na ordem real de execução ----
-  const linhasResumo = blocosComConteudo.map((key,i)=>{
-    const musicasDoBloco = (e.musicas||[]).filter(m=>m.bloco===key);
-    const musicaHtml = musicasDoBloco.length
-      ? musicasDoBloco.map(m=>{
-          contadorMusica++;
-          return `🎵 Música ${contadorMusica}: ${escapeHtml([m.titulo,m.artista].filter(Boolean).join(' — '))}`;
-        }).join('<br>')
+  // ---- Folha de rosto: tabela-resumo na ordem real de execução (bloco + música(s) que segue) ----
+  const linhasResumo = paginas.map((p,i)=>{
+    const musicaHtml = p.musicas.length
+      ? p.musicas.map((m,j)=>`🎵 Música ${j+1}: ${escapeHtml([m.titulo,m.artista].filter(Boolean).join(' — '))}`).join('<br>')
       : '<span style="color:#bbb;">—</span>';
     return `<tr>
       <td class="num">${String(i+1).padStart(2,'0')}</td>
-      <td><span class="btitulo">${escapeHtml(BLOCO_LABELS[key])}</span></td>
+      <td><span class="btitulo">${escapeHtml(p.label)}</span></td>
       <td class="bmusica">${musicaHtml}</td>
     </tr>`;
   }).join('');
 
-  const musicasSemBloco = (e.musicas||[]).filter(m=>!BLOCO_LABELS[m.bloco]);
-
-  // ---- Uma .page por bloco, replicando o cabeçalho colorido e as musica-box do roteiro original ----
-  contadorMusica = 0;
-  const paginasBlocos = blocosComConteudo.map((key,i)=>{
-    const texto = (e.blocos && e.blocos[key]) ? e.blocos[key].trim() : '';
-    const musicasDoBloco = (e.musicas||[]).filter(m=>m.bloco===key);
-    const paragrafos = texto
-      ? texto.split(/\n{2,}/).map(p=>`<p>${escapeHtml(p).replace(/\n/g,'<br>')}</p>`).join('')
+  // ---- Uma .page por bloco (com as músicas que tocam logo depois dele, na ordem real) ----
+  const paginasHtml = paginas.map((p,i)=>{
+    const paragrafos = p.texto.trim()
+      ? p.texto.trim().split(/\n{2,}/).map(par=>`<p>${escapeHtml(par).replace(/\n/g,'<br>')}</p>`).join('')
       : '';
-    const musicasHtml = musicasDoBloco.map(m=>{
-      contadorMusica++;
-      return `<div class="musica-box">
-        <div class="rotulo">MÚSICA ${contadorMusica}</div>
+    const musicasHtml = p.musicas.map((m,j)=>`<div class="musica-box">
+        <div class="rotulo">MÚSICA ${String(j+1).padStart(2,'0')}</div>
         <span class="nome-musica">${escapeHtml(m.titulo||'')}</span>
         <div class="artista">${escapeHtml(m.artista||'')}</div>
-      </div>`;
-    }).join('');
+      </div>`).join('');
     return `<div class="page">
-      <div class="top-header" style="background:${BLOCO_COLORS[key]||'#333'};">
+      <div class="top-header" style="background:${p.cor};">
         <div class="header-compact">
           <div class="header-left">
             <span class="header-bloco-num">Bloco ${String(i+1).padStart(2,'0')}</span>
-            <span class="header-titulo">${escapeHtml(BLOCO_LABELS[key])}</span>
+            <span class="header-titulo">${escapeHtml(p.label)}</span>
           </div>
         </div>
       </div>
@@ -968,22 +1065,6 @@ function imprimirEdicao(id){
       </div>
     </div>`;
   }).join('');
-
-  const paginaExtras = musicasSemBloco.length ? `<div class="page">
-    <div class="top-header" style="background:#555;">
-      <div class="header-compact"><div class="header-left"><span class="header-titulo">Outras músicas</span></div></div>
-    </div>
-    <div class="content">
-      ${musicasSemBloco.map(m=>{
-        contadorMusica++;
-        return `<div class="musica-box">
-          <div class="rotulo">MÚSICA ${contadorMusica}</div>
-          <span class="nome-musica">${escapeHtml(m.titulo||'')}</span>
-          <div class="artista">${escapeHtml(m.artista||'')}</div>
-        </div>`;
-      }).join('')}
-    </div>
-  </div>` : '';
 
   const doc = `<!DOCTYPE html>
 <html lang="pt-BR"><head><meta charset="UTF-8">
@@ -1054,8 +1135,7 @@ function imprimirEdicao(id){
   <div class="rodape"><span>Vila Brasil</span><span>Natan Ferreira</span></div>
 </div>
 
-${paginasBlocos}
-${paginaExtras}
+${paginasHtml}
 
 </body></html>`;
 
@@ -1089,11 +1169,14 @@ function renderSongResults(termoRaw){
   // Agrupa por música (título+artista) através de todas as edições
   const grupos = {};
   state.edicoes.forEach(e=>{
-    (e.musicas||[]).forEach(m=>{
+    const musicasDaEdicao = Array.isArray(e.roteiro)
+      ? e.roteiro.filter(i=>i.tipo==='musica')
+      : (e.musicas||[]);
+    musicasDaEdicao.forEach(m=>{
       const chave = normalizar(m.titulo + '|' + m.artista);
       if(!normalizar(m.titulo+' '+m.artista).includes(termo)) return;
       if(!grupos[chave]) grupos[chave] = { titulo:m.titulo, artista:m.artista, ocorrencias: [] };
-      grupos[chave].ocorrencias.push({ data: e.data, tema: e.tema, bloco: m.bloco, id: e.id });
+      grupos[chave].ocorrencias.push({ data: e.data, tema: e.tema, id: e.id });
     });
   });
 
@@ -1116,7 +1199,7 @@ function renderSongResults(termoRaw){
       </div>
       ${ocs.map(o=>`
         <div class="song-occurrence">
-          <div><span class="oc-tema">${escapeHtml(o.tema)}</span> <span class="oc-meta">· bloco: ${BLOCO_LABELS[o.bloco]||o.bloco}</span></div>
+          <div><span class="oc-tema">${escapeHtml(o.tema)}</span></div>
           <div class="oc-meta">${formatDataBR(o.data)}</div>
         </div>
       `).join('')}
