@@ -354,6 +354,7 @@
     font-size:13px; color: var(--ink); border:1px solid var(--thread);
   }
   .total-tempo-bar.estourou{ background: var(--wine-tint); color: var(--wine); font-weight:700; }
+  .total-tempo-bar.abaixo{ background: #fff3e0; color: #8a6d00; font-weight:700; }
   .form-footer{ display:flex; gap:10px; justify-content:flex-end; margin-top: 4px; }
 
   /* ===== SONG SEARCH VIEW ===== */
@@ -560,12 +561,15 @@ let saveTimer = null;
 const BLOCO_LABELS = {
   abertura: 'Abertura',
   capelinha: 'Capelinha da Vila',
+  folhinha: 'Olhando a Folhinha',
   peNaRoca: 'Pé na Roça',
   poesia: 'Vila de Poesia',
+  almanaque: 'Almanaque',
   noBalcaoDaVendinha: 'No Balcão da Vendinha',
   feiraLivre: 'Feira Livre',
   vilaMundo: 'Vila Mundo',
   sonho: 'Vila dos Sonhos',
+  boteco: 'Conversa de Boteco',
   encerramento: 'Encerramento',
   extra: 'Bloco avulso'
 };
@@ -573,12 +577,15 @@ const BLOCO_LABELS = {
 const BLOCO_COLORS = {
   abertura: '#2c3e50',
   capelinha: '#4a235a',
+  folhinha: '#455a64',
   peNaRoca: '#1b5e20',
   poesia: '#5d4037',
+  almanaque: '#455a64',
   noBalcaoDaVendinha: '#8a6d00',
   feiraLivre: '#7a2323',
   vilaMundo: '#1565c0',
   sonho: '#0d1b4b',
+  boteco: '#455a64',
   encerramento: '#1a1a2e',
   extra: '#37474f'
 };
@@ -749,11 +756,14 @@ document.querySelectorAll('nav.tabs button').forEach(btn=>{
 const BLOCO_KEYWORDS = [
   ['peNaRoca', ['pé na roça','pe na roca']],
   ['capelinha', ['capelinha da vila','capelinha']],
+  ['folhinha', ['olhando a folhinha','folhinha']],
   ['poesia', ['vila de poesia','poesia']],
+  ['almanaque', ['almanaque']],
   ['noBalcaoDaVendinha', ['no balcão da vendinha','balcão da vendinha','balcao da vendinha']],
   ['feiraLivre', ['feira livre']],
   ['vilaMundo', ['vila mundo']],
   ['sonho', ['vila dos sonhos','sonho']],
+  ['boteco', ['conversa de boteco','boteco']],
   ['encerramento', ['encerramento']],
   ['abertura', ['abertura']]
 ];
@@ -973,15 +983,20 @@ function atualizarTotalTempo(){
     }
   });
   const totalSegundos = segundosTexto + segundosMusica;
-  const CAP_SEGUNDOS = 59*60;
-  const estourou = totalSegundos > CAP_SEGUNDOS;
+  // Faixa-alvo do programa completo: 1h50 a 1h55 (110 a 115 minutos)
+  const FAIXA_MIN_SEGUNDOS = 110*60;
+  const FAIXA_MAX_SEGUNDOS = 115*60;
+  const abaixoDaFaixa = totalSegundos < FAIXA_MIN_SEGUNDOS;
+  const acimaDaFaixa = totalSegundos > FAIXA_MAX_SEGUNDOS;
 
-  el.classList.toggle('estourou', estourou);
+  el.classList.toggle('estourou', acimaDaFaixa);
+  el.classList.toggle('abaixo', abaixoDaFaixa);
   el.innerHTML =
     `<strong>${formatarSegundos(totalSegundos)}</strong> de duração estimada ` +
     `(${formatarSegundos(segundosTexto)} de locução + ${formatarSegundos(segundosMusica)} de música)` +
     (musicasSemDuracao ? ` · ${musicasSemDuracao} música${musicasSemDuracao>1?'s':''} sem duração informada` : '') +
-    (estourou ? ` · acima do teto de 59 min` : '');
+    (acimaDaFaixa ? ` · acima da faixa-alvo de 1h50–1h55` : '') +
+    (abaixoDaFaixa ? ` · abaixo da faixa-alvo de 1h50–1h55` : '');
 }
 
 function atualizarContagemEditor(){
@@ -1279,10 +1294,6 @@ function renderLista(){
       (e.musicas||[]).forEach(m=> roteiro.push({ tipo:'musica', titulo:m.titulo||'', artista:m.artista||'' }));
     }
 
-    const musicasHtml = roteiro.filter(i=>i.tipo==='musica').map(m=>
-      `<span class="song-chip">${escapeHtml(m.titulo)}${m.artista? ' — '+escapeHtml(m.artista):''}</span>`
-    ).join('');
-
     const blocosHtml = roteiro.filter(i=>i.tipo==='bloco' && i.texto && i.texto.trim()).map(i=>{
       const label = i.chave === 'extra' ? (i.nome || 'Bloco avulso') : getBlocoLabel(i.chave);
       return `<div class="bloco-row">
@@ -1290,11 +1301,6 @@ function renderLista(){
         <div class="bloco-text">${escapeHtml(i.texto)}</div>
       </div>`;
     }).join('');
-
-    const duracaoInfo = calcularDuracaoTotalRoteiro(roteiro);
-    const duracaoHtml = duracaoInfo.totalSegundos > 0
-      ? ` · ~${formatarSegundos(duracaoInfo.totalSegundos)}${duracaoInfo.totalSegundos > 59*60 ? ' ⚠️' : ''}`
-      : '';
 
     return `<div class="card" data-id="${e.id}">
       <div class="card-body">
@@ -1305,7 +1311,7 @@ function renderLista(){
           </div>
           <div style="flex:1; min-width:200px;">
             <div class="card-tema">${escapeHtml(e.tema)}</div>
-            <div class="card-meta">Exibição: ${formatDataBR(e.data)} ${e.numero? '· Edição '+escapeHtml(e.numero):''}${duracaoHtml}</div>
+            <div class="card-meta">Exibição: ${formatDataBR(e.data)} ${e.numero? '· Edição '+escapeHtml(e.numero):''}</div>
           </div>
           <div class="card-actions">
             <button class="btn btn-ghost btn-sm" style="color:var(--brass); border-color:var(--brass);" onclick="imprimirEdicao('${e.id}')">Imprimir</button>
@@ -1313,7 +1319,6 @@ function renderLista(){
             <button class="btn btn-wine btn-sm" onclick="excluirEdicao('${e.id}')">Excluir</button>
           </div>
         </div>
-        ${musicasHtml ? `<div class="card-songs">${musicasHtml}</div>` : ''}
         <button class="toggle-link" onclick="toggleCard(this)">Ver roteiro completo ▾</button>
         <div class="card-expand">
           ${blocosHtml || '<div class="bloco-text">Nenhum bloco de texto cadastrado.</div>'}
