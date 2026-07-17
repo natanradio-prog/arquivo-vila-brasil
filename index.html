@@ -502,6 +502,8 @@
       <div class="editor-modal-title-group">
         <select id="editorChave" class="editor-modal-select"></select>
         <input type="text" id="editorNomeExtra" class="editor-modal-nome-extra" placeholder="Nome do bloco avulso" style="display:none;">
+        <input type="text" id="editorTemaDoutora" class="editor-modal-nome-extra" placeholder="Tema da conversa com a Doutora" style="display:none;">
+        <input type="text" id="editorDuracaoAudio" class="editor-modal-nome-extra" placeholder="Duração do áudio gravado (mm:ss)" style="display:none; max-width:170px;">
       </div>
       <button type="button" id="editorFechar" class="editor-modal-close" title="Fechar sem salvar">×</button>
     </div>
@@ -569,24 +571,30 @@ const BLOCO_LABELS = {
   feiraLivre: 'Feira Livre',
   vilaMundo: 'Vila Mundo',
   sonho: 'Vila dos Sonhos',
+  doutora: 'A Doutora Chegou',
   boteco: 'Conversa de Boteco',
   encerramento: 'Encerramento',
   extra: 'Bloco avulso'
 };
 
+// Decisão de 17/07/2026: todos os 13 quadros nomeados usam a mesma cor de
+// cabeçalho (#2c3e50) — o esquema anterior, com cor diferente por quadro,
+// foi abandonado a pedido de Natan. "extra" (bloco avulso) fica de fora
+// dessa unificação, por não ser um dos 13 quadros nomeados.
 const BLOCO_COLORS = {
   abertura: '#2c3e50',
-  capelinha: '#4a235a',
-  folhinha: '#455a64',
-  peNaRoca: '#1b5e20',
-  poesia: '#5d4037',
-  almanaque: '#455a64',
-  noBalcaoDaVendinha: '#8a6d00',
-  feiraLivre: '#7a2323',
-  vilaMundo: '#1565c0',
-  sonho: '#0d1b4b',
-  boteco: '#455a64',
-  encerramento: '#1a1a2e',
+  capelinha: '#2c3e50',
+  folhinha: '#2c3e50',
+  peNaRoca: '#2c3e50',
+  poesia: '#2c3e50',
+  almanaque: '#2c3e50',
+  noBalcaoDaVendinha: '#2c3e50',
+  feiraLivre: '#2c3e50',
+  vilaMundo: '#2c3e50',
+  sonho: '#2c3e50',
+  doutora: '#2c3e50',
+  boteco: '#2c3e50',
+  encerramento: '#2c3e50',
   extra: '#37474f'
 };
 
@@ -763,6 +771,7 @@ const BLOCO_KEYWORDS = [
   ['feiraLivre', ['feira livre']],
   ['vilaMundo', ['vila mundo']],
   ['sonho', ['vila dos sonhos','sonho']],
+  ['doutora', ['a doutora chegou','doutora chegou','doutora']],
   ['boteco', ['conversa de boteco','boteco']],
   ['encerramento', ['encerramento']],
   ['abertura', ['abertura']]
@@ -896,18 +905,32 @@ function criarLinhaSequencia(item){
           ${todosBlocosParaSelect().map(([k,label])=>`<option value="${k}" ${chave===k?'selected':''}>${label}</option>`).join('')}
         </select>
         <input type="text" class="seq-nome-extra" placeholder="Nome do bloco avulso" value="${escapeHtml(item.nome||'')}" style="${chave==='extra'?'':'display:none;'}">
+        <input type="text" class="seq-tema-doutora" placeholder="Tema da conversa com a Doutora" value="${escapeHtml(item.tema||'')}" style="${chave==='doutora'?'':'display:none;'}">
         <button type="button" class="seq-edit-btn" title="Abrir em tela cheia">⤢ Editar</button>
         <button type="button" class="seq-move" data-dir="-1" title="Mover para cima">▲</button>
         <button type="button" class="seq-move" data-dir="1" title="Mover para baixo">▼</button>
         <button type="button" class="seq-remove" title="Remover">×</button>
       </div>
-      <textarea class="s-texto" placeholder="Texto do bloco...">${item.texto||''}</textarea>
+      <textarea class="s-texto" placeholder="${chave==='doutora' ? 'Texto de introdução (curto — a conversa em si é áudio gravado, não vai aqui)...' : 'Texto do bloco...'}">${item.texto||''}</textarea>
+      <div class="seq-audio-doutora" style="${chave==='doutora'?'':'display:none;'} margin-top:8px;">
+        <input type="text" class="s-duracao-audio" placeholder="Duração do áudio gravado (mm:ss)" value="${escapeHtml(item.duracaoAudio||'')}" title="Duração real da gravação com a psicóloga (ex.: 12:30)">
+      </div>
     `;
-    row.querySelector('.s-chave').addEventListener('change', (ev)=>{
-      row.querySelector('.seq-nome-extra').style.display = ev.target.value === 'extra' ? '' : 'none';
+    const selectEl = row.querySelector('.s-chave');
+    const textoEl = row.querySelector('.s-texto');
+    selectEl.addEventListener('change', (ev)=>{
+      const novaChave = ev.target.value;
+      row.querySelector('.seq-nome-extra').style.display = novaChave === 'extra' ? '' : 'none';
+      row.querySelector('.seq-tema-doutora').style.display = novaChave === 'doutora' ? '' : 'none';
+      row.querySelector('.seq-audio-doutora').style.display = novaChave === 'doutora' ? '' : 'none';
+      textoEl.placeholder = novaChave === 'doutora'
+        ? 'Texto de introdução (curto — a conversa em si é áudio gravado, não vai aqui)...'
+        : 'Texto do bloco...';
+      atualizarTotalTempo();
     });
     row.querySelector('.seq-edit-btn').addEventListener('click', ()=> abrirEditorBloco(row));
-    row.querySelector('.s-texto').addEventListener('input', atualizarTotalTempo);
+    textoEl.addEventListener('input', atualizarTotalTempo);
+    row.querySelector('.s-duracao-audio').addEventListener('input', atualizarTotalTempo);
   }
 
   row.querySelector('.seq-remove').addEventListener('click', ()=>{
@@ -956,33 +979,39 @@ function formatarSegundos(totalSegundos){
     : `${m}:${String(s).padStart(2,'0')}`;
 }
 function calcularDuracaoTotalRoteiro(roteiro){
-  let segundosTexto = 0, segundosMusica = 0, musicasSemDuracao = 0;
+  let segundosTexto = 0, segundosMusica = 0, segundosAudio = 0, musicasSemDuracao = 0;
   (roteiro||[]).forEach(item=>{
     if(item.tipo === 'bloco'){
       segundosTexto += (contarPalavrasEditor(item.texto) / 86) * 60;
+      if(item.chave === 'doutora' && item.duracaoAudio) segundosAudio += parseDuracaoParaSegundos(item.duracaoAudio);
     } else if(item.tipo === 'musica'){
       if(item.duracao) segundosMusica += parseDuracaoParaSegundos(item.duracao);
       else musicasSemDuracao++;
     }
   });
-  return { segundosTexto, segundosMusica, totalSegundos: segundosTexto + segundosMusica, musicasSemDuracao };
+  return { segundosTexto, segundosMusica, segundosAudio, totalSegundos: segundosTexto + segundosMusica + segundosAudio, musicasSemDuracao };
 }
 
 function atualizarTotalTempo(){
   const el = document.getElementById('totalTempoRoteiro');
   if(!el) return;
   const rows = [...document.querySelectorAll('#sequenciaRows .seq-row')];
-  let segundosTexto = 0, segundosMusica = 0, musicasSemDuracao = 0;
+  let segundosTexto = 0, segundosMusica = 0, segundosAudio = 0, musicasSemDuracao = 0;
   rows.forEach(row=>{
     if(row.dataset.tipo === 'bloco'){
       segundosTexto += (contarPalavrasEditor(row.querySelector('.s-texto').value) / 86) * 60;
+      const chave = row.querySelector('.s-chave').value;
+      if(chave === 'doutora'){
+        const audioBruto = row.querySelector('.s-duracao-audio').value.trim();
+        if(audioBruto) segundosAudio += parseDuracaoParaSegundos(audioBruto);
+      }
     } else {
       const bruto = row.querySelector('.s-duracao').value.trim();
       if(bruto) segundosMusica += parseDuracaoParaSegundos(bruto);
       else musicasSemDuracao++;
     }
   });
-  const totalSegundos = segundosTexto + segundosMusica;
+  const totalSegundos = segundosTexto + segundosMusica + segundosAudio;
   // Faixa-alvo do programa completo: 1h50 a 1h55 (110 a 115 minutos)
   const FAIXA_MIN_SEGUNDOS = 110*60;
   const FAIXA_MAX_SEGUNDOS = 115*60;
@@ -993,7 +1022,8 @@ function atualizarTotalTempo(){
   el.classList.toggle('abaixo', abaixoDaFaixa);
   el.innerHTML =
     `<strong>${formatarSegundos(totalSegundos)}</strong> de duração estimada ` +
-    `(${formatarSegundos(segundosTexto)} de locução + ${formatarSegundos(segundosMusica)} de música)` +
+    `(${formatarSegundos(segundosTexto)} de locução + ${formatarSegundos(segundosMusica)} de música` +
+    (segundosAudio ? ` + ${formatarSegundos(segundosAudio)} de áudio gravado` : '') + `)` +
     (musicasSemDuracao ? ` · ${musicasSemDuracao} música${musicasSemDuracao>1?'s':''} sem duração informada` : '') +
     (acimaDaFaixa ? ` · acima da faixa-alvo de 1h50–1h55` : '') +
     (abaixoDaFaixa ? ` · abaixo da faixa-alvo de 1h50–1h55` : '');
@@ -1015,9 +1045,20 @@ function abrirEditorBloco(row){
   const select = document.getElementById('editorChave');
   select.innerHTML = todosBlocosParaSelect().map(([k,label])=>`<option value="${k}" ${chave===k?'selected':''}>${label}</option>`).join('');
   const nomeInput = document.getElementById('editorNomeExtra');
+  const temaInput = document.getElementById('editorTemaDoutora');
+  const audioInput = document.getElementById('editorDuracaoAudio');
+
+  function sincronizarCamposEspeciais(v){
+    nomeInput.style.display = v === 'extra' ? '' : 'none';
+    temaInput.style.display = v === 'doutora' ? '' : 'none';
+    audioInput.style.display = v === 'doutora' ? '' : 'none';
+  }
+
   nomeInput.value = row.querySelector('.seq-nome-extra').value;
-  nomeInput.style.display = chave === 'extra' ? '' : 'none';
-  select.onchange = ()=>{ nomeInput.style.display = select.value === 'extra' ? '' : 'none'; };
+  temaInput.value = row.querySelector('.seq-tema-doutora') ? row.querySelector('.seq-tema-doutora').value : '';
+  audioInput.value = row.querySelector('.s-duracao-audio') ? row.querySelector('.s-duracao-audio').value : '';
+  sincronizarCamposEspeciais(chave);
+  select.onchange = ()=> sincronizarCamposEspeciais(select.value);
 
   document.getElementById('editorTexto').value = row.querySelector('.s-texto').value;
   atualizarContagemEditor();
@@ -1039,6 +1080,12 @@ document.getElementById('editorSalvar').addEventListener('click', ()=>{
   editorRowAtual.querySelector('.s-chave').value = chave;
   editorRowAtual.querySelector('.seq-nome-extra').value = document.getElementById('editorNomeExtra').value;
   editorRowAtual.querySelector('.seq-nome-extra').style.display = chave === 'extra' ? '' : 'none';
+  const temaRow = editorRowAtual.querySelector('.seq-tema-doutora');
+  const audioRow = editorRowAtual.querySelector('.s-duracao-audio');
+  if(temaRow) temaRow.value = document.getElementById('editorTemaDoutora').value;
+  if(audioRow) audioRow.value = document.getElementById('editorDuracaoAudio').value;
+  if(editorRowAtual.querySelector('.seq-tema-doutora')) editorRowAtual.querySelector('.seq-tema-doutora').style.display = chave === 'doutora' ? '' : 'none';
+  if(editorRowAtual.querySelector('.seq-audio-doutora')) editorRowAtual.querySelector('.seq-audio-doutora').style.display = chave === 'doutora' ? '' : 'none';
   editorRowAtual.querySelector('.s-texto').value = document.getElementById('editorTexto').value;
   fecharEditorBloco();
   atualizarTotalTempo();
@@ -1165,6 +1212,10 @@ function lerSequenciaDoFormulario(){
     const chave = row.querySelector('.s-chave').value;
     const item = { tipo:'bloco', chave, texto: row.querySelector('.s-texto').value };
     if(chave === 'extra') item.nome = row.querySelector('.seq-nome-extra').value.trim();
+    if(chave === 'doutora'){
+      item.tema = row.querySelector('.seq-tema-doutora').value.trim();
+      item.duracaoAudio = row.querySelector('.s-duracao-audio').value.trim();
+    }
     return item;
   }).filter(item => item.tipo === 'musica' ? item.titulo : true);
 }
@@ -1391,6 +1442,8 @@ function imprimirEdicao(id){
         label: item.chave === 'extra' ? (item.nome || 'Bloco avulso') : getBlocoLabel(item.chave),
         cor: getBlocoCor(item.chave),
         texto: item.texto || '',
+        tema: item.tema || '',
+        duracaoAudio: item.duracaoAudio || '',
         musicas: []
       };
       paginas.push(atual);
@@ -1409,10 +1462,13 @@ function imprimirEdicao(id){
     const musicaHtml = p.musicas.length
       ? p.musicas.map((m,j)=>`🎵 Música ${j+1}: ${escapeHtml([m.titulo,m.artista].filter(Boolean).join(' — '))}`).join('<br>')
       : '<span style="color:#bbb;">—</span>';
+    const audioHtml = p.chave === 'doutora'
+      ? `🎙️ Áudio gravado${p.tema? ': '+escapeHtml(p.tema):''}${p.duracaoAudio? ' ('+escapeHtml(p.duracaoAudio)+')':''}`
+      : '';
     return `<tr>
       <td class="num">${String(i+1).padStart(2,'0')}</td>
       <td><span class="btitulo">${escapeHtml(p.label)}</span></td>
-      <td class="bmusica">${musicaHtml}</td>
+      <td class="bmusica">${[musicaHtml, audioHtml].filter(Boolean).join('<br>') || '<span style="color:#bbb;">—</span>'}</td>
     </tr>`;
   }).join('');
 
@@ -1426,6 +1482,11 @@ function imprimirEdicao(id){
         <span class="nome-musica">${escapeHtml(m.titulo||'')}</span>
         <div class="artista">${escapeHtml(m.artista||'')}</div>
       </div>`).join('');
+    const audioBoxHtml = p.chave === 'doutora' ? `<div class="musica-box" style="border-left-color:#7c4dff;">
+        <div class="rotulo">🎙️ ÁUDIO GRAVADO${p.duracaoAudio? ' · '+escapeHtml(p.duracaoAudio):''}</div>
+        <span class="nome-musica">${escapeHtml(p.tema || '(tema não informado)')}</span>
+        <div class="artista">Conversa com a psicóloga — gravação externa, não é locução ao vivo</div>
+      </div>` : '';
     return `<div class="page">
       <div class="top-header" style="background:${p.cor};">
         <div class="header-compact">
@@ -1437,6 +1498,7 @@ function imprimirEdicao(id){
       </div>
       <div class="content">
         ${paragrafos}
+        ${audioBoxHtml}
         ${musicasHtml}
       </div>
       <div class="rodape">
