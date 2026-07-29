@@ -552,7 +552,7 @@ const LOCAL_KEY = 'vilabrasil_edicoes_v1';
 
 let state = {
   edicoes: [], // { id, numero, data, tema, roteiro:[{tipo,chave|titulo,texto|artista,nome?}] (ordem = ordem de execução), obs, criadoEm }
-  blocosCustom: [] // { chave, label, cor } — tipos de bloco fixo criados por Natan, além dos 9 padrão
+  blocosCustom: [] // { chave, label, cor } — tipos de bloco fixo criados por Natan, além dos 14 padrão
 };
 
 let tokenClient = null;
@@ -572,15 +572,18 @@ const BLOCO_LABELS = {
   vilaMundo: 'Vila Mundo',
   sonho: 'Vila dos Sonhos',
   doutora: 'A Doutora Chegou',
+  boaNoticia: 'Boa Notícia',
   boteco: 'Conversa de Boteco',
   encerramento: 'Encerramento',
   extra: 'Bloco avulso'
 };
 
-// Decisão de 17/07/2026: todos os 13 quadros nomeados usam a mesma cor de
-// cabeçalho (#2c3e50) — o esquema anterior, com cor diferente por quadro,
-// foi abandonado a pedido de Natan. "extra" (bloco avulso) fica de fora
-// dessa unificação, por não ser um dos 13 quadros nomeados.
+// Decisão de 17/07/2026 (reconfirmada em 24/07/2026): todos os quadros
+// nomeados usam a mesma cor de cabeçalho (#2c3e50) — o esquema anterior,
+// com cor diferente por quadro, foi abandonado a pedido de Natan. Boa
+// Notícia (adicionada em 29/07/2026) entra na mesma regra. "extra" (bloco
+// avulso) fica de fora dessa unificação, por não ser um dos quadros
+// nomeados.
 const BLOCO_COLORS = {
   abertura: '#2c3e50',
   capelinha: '#2c3e50',
@@ -593,6 +596,7 @@ const BLOCO_COLORS = {
   vilaMundo: '#2c3e50',
   sonho: '#2c3e50',
   doutora: '#2c3e50',
+  boaNoticia: '#2c3e50',
   boteco: '#2c3e50',
   encerramento: '#2c3e50',
   extra: '#37474f'
@@ -772,6 +776,7 @@ const BLOCO_KEYWORDS = [
   ['vilaMundo', ['vila mundo']],
   ['sonho', ['vila dos sonhos','sonho']],
   ['doutora', ['a doutora chegou','doutora chegou','doutora']],
+  ['boaNoticia', ['boa notícia','boa noticia']],
   ['boteco', ['conversa de boteco','boteco']],
   ['encerramento', ['encerramento']],
   ['abertura', ['abertura']]
