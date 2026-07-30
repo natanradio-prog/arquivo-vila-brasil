@@ -1465,7 +1465,7 @@ function imprimirEdicao(id){
   // ---- Folha de rosto: tabela-resumo na ordem real de execução (bloco + música(s) que segue) ----
   const linhasResumo = paginas.map((p,i)=>{
     const musicaHtml = p.musicas.length
-      ? p.musicas.map((m,j)=>`🎵 Música ${j+1}: ${escapeHtml([m.titulo,m.artista].filter(Boolean).join(' — '))}`).join('<br>')
+      ? p.musicas.map(m=>`🎵 ${escapeHtml([m.titulo,m.artista].filter(Boolean).join(' — '))}`).join('<br>')
       : '<span style="color:#bbb;">—</span>';
     const audioHtml = p.chave === 'doutora'
       ? `🎙️ Áudio gravado${p.tema? ': '+escapeHtml(p.tema):''}${p.duracaoAudio? ' ('+escapeHtml(p.duracaoAudio)+')':''}`
@@ -1482,11 +1482,14 @@ function imprimirEdicao(id){
     const paragrafos = p.texto.trim()
       ? p.texto.trim().split(/\n{2,}/).map(par=>`<p>${escapeHtml(par).replace(/\n/g,'<br>')}</p>`).join('')
       : '';
-    const musicasHtml = p.musicas.map((m,j)=>`<div class="musica-box">
-        <div class="rotulo">MÚSICA ${String(j+1).padStart(2,'0')}</div>
-        <span class="nome-musica">${escapeHtml(m.titulo||'')}</span>
+    const musicasHtml = p.musicas.map((m,j)=>{
+      const titulo = (m.titulo||'').trim();
+      return `<div class="musica-box">
+        <div class="rotulo">🎵 ENTRA MÚSICA — ${escapeHtml(titulo.toUpperCase())}</div>
+        <span class="nome-musica">${escapeHtml(titulo)}</span>
         <div class="artista">${escapeHtml(m.artista||'')}</div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
     const audioBoxHtml = p.chave === 'doutora' ? `<div class="musica-box" style="border-left-color:#7c4dff;">
         <div class="rotulo">🎙️ ÁUDIO GRAVADO${p.duracaoAudio? ' · '+escapeHtml(p.duracaoAudio):''}</div>
         <span class="nome-musica">${escapeHtml(p.tema || '(tema não informado)')}</span>
