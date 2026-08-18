@@ -163,6 +163,7 @@
     margin: 0 0 4px;
   }
   .card-meta{ font-size:12.5px; color: var(--ink-soft); font-family:'IBM Plex Mono',monospace; }
+  .card-duracao{ color: var(--brass); font-weight:600; }
   .card-actions{ display:flex; gap:8px; margin-left:auto; }
 
   .card-songs{
@@ -1356,6 +1357,11 @@ function renderLista(){
       </div>`;
     }).join('');
 
+    const duracao = calcularDuracaoTotalRoteiro(roteiro);
+    const duracaoHtml = duracao.totalSegundos > 0
+      ? `<span class="card-duracao">⏱ ${formatarSegundos(duracao.totalSegundos)}${duracao.musicasSemDuracao ? ' (aprox.)' : ''}</span>`
+      : '';
+
     return `<div class="card" data-id="${e.id}">
       <div class="card-body">
         <div class="card-top">
@@ -1365,7 +1371,7 @@ function renderLista(){
           </div>
           <div style="flex:1; min-width:200px;">
             <div class="card-tema">${escapeHtml(e.tema)}</div>
-            <div class="card-meta">Exibição: ${formatDataBR(e.data)} ${e.numero? '· Edição '+escapeHtml(e.numero):''}</div>
+            <div class="card-meta">Exibição: ${formatDataBR(e.data)} ${e.numero? '· Edição '+escapeHtml(e.numero):''}${duracaoHtml ? ' · '+duracaoHtml : ''}</div>
           </div>
           <div class="card-actions">
             <button class="btn btn-ghost btn-sm" style="color:var(--brass); border-color:var(--brass);" onclick="imprimirEdicao('${e.id}')">Imprimir</button>
