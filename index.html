@@ -512,7 +512,10 @@
       <div class="editor-modal-title-group">
         <select id="editorChave" class="editor-modal-select"></select>
         <input type="text" id="editorNomeExtra" class="editor-modal-nome-extra" placeholder="Nome do bloco avulso" style="display:none;">
-        <input type="text" id="editorTemaDoutora" class="editor-modal-nome-extra" placeholder="Tema da conversa com a Doutora" style="display:none;">
+        <label id="editorAudioToggleWrap" style="display:none; align-items:center; gap:5px; font-size:12.5px; color:var(--ink-soft); cursor:pointer;">
+          <input type="checkbox" id="editorTemAudio"> 🎙️ Áudio gravado
+        </label>
+        <input type="text" id="editorTemaDoutora" class="editor-modal-nome-extra" placeholder="Descrição do áudio (ex.: tema, ouvinte, quem recitou)" style="display:none;">
         <input type="text" id="editorDuracaoAudio" class="editor-modal-nome-extra" placeholder="Duração do áudio gravado (mm:ss)" style="display:none; max-width:170px;">
       </div>
       <button type="button" id="editorFechar" class="editor-modal-close" title="Fechar sem salvar">×</button>
@@ -912,6 +915,7 @@ function criarLinhaSequencia(item){
     row.querySelector('.s-duracao').addEventListener('input', atualizarTotalTempo);
   } else {
     const chave = item.chave || 'abertura';
+    const temAudio = !!(item.duracaoAudio || item.tema) || chave === 'doutora';
     row.innerHTML = `
       <div class="seq-top">
         <span class="seq-time-marker" title="Horário previsto de início">--:--</span>
@@ -920,27 +924,48 @@ function criarLinhaSequencia(item){
           ${todosBlocosParaSelect().map(([k,label])=>`<option value="${k}" ${chave===k?'selected':''}>${label}</option>`).join('')}
         </select>
         <input type="text" class="seq-nome-extra" placeholder="Nome do bloco avulso" value="${escapeHtml(item.nome||'')}" style="${chave==='extra'?'':'display:none;'}">
-        <input type="text" class="seq-tema-doutora" placeholder="Tema da conversa com a Doutora" value="${escapeHtml(item.tema||'')}" style="${chave==='doutora'?'':'display:none;'}">
+        <label class="seq-audio-toggle" style="${chave==='doutora' ? 'display:none;' : 'display:inline-flex;'} align-items:center; gap:5px; font-size:12px; color:var(--ink-soft); cursor:pointer;">
+          <input type="checkbox" class="s-tem-audio" ${temAudio && chave!=='doutora' ? 'checked':''}> 🎙️ Áudio gravado
+        </label>
         <button type="button" class="seq-edit-btn" title="Abrir em tela cheia">⤢ Editar</button>
         <button type="button" class="seq-move" data-dir="-1" title="Mover para cima">▲</button>
         <button type="button" class="seq-move" data-dir="1" title="Mover para baixo">▼</button>
         <button type="button" class="seq-remove" title="Remover">×</button>
       </div>
       <textarea class="s-texto" placeholder="${chave==='doutora' ? 'Texto de introdução (curto — a conversa em si é áudio gravado, não vai aqui)...' : 'Texto do bloco...'}">${item.texto||''}</textarea>
-      <div class="seq-audio-doutora" style="${chave==='doutora'?'':'display:none;'} margin-top:8px;">
-        <input type="text" class="s-duracao-audio" placeholder="Duração do áudio gravado (mm:ss)" value="${escapeHtml(item.duracaoAudio||'')}" title="Duração real da gravação com a psicóloga (ex.: 12:30)">
+      <div class="seq-audio-campos" style="margin-top:8px; gap:8px; flex-wrap:wrap; ${temAudio ? 'display:flex;' : 'display:none;'}">
+        <input type="text" class="seq-tema-doutora" placeholder="${chave==='doutora' ? 'Tema da conversa com a Doutora' : 'Descrição do áudio (ex.: tema, ouvinte, quem recitou)'}" value="${escapeHtml(item.tema||'')}" style="flex:1; min-width:200px;">
+        <input type="text" class="s-duracao-audio" placeholder="Duração do áudio (mm:ss)" value="${escapeHtml(item.duracaoAudio||'')}" style="width:150px;" title="Duração real da gravação (ex.: 3:45)">
       </div>
     `;
     const selectEl = row.querySelector('.s-chave');
     const textoEl = row.querySelector('.s-texto');
+    const audioToggle = row.querySelector('.s-tem-audio');
+    const audioCampos = row.querySelector('.seq-audio-campos');
+    const audioToggleWrap = row.querySelector('.seq-audio-toggle');
+    function sincronizarVisibilidadeAudio(novaChave){
+      if(novaChave === 'doutora'){
+        audioToggleWrap.style.display = 'none';
+        audioCampos.style.display = 'flex';
+      } else {
+        audioToggleWrap.style.display = 'inline-flex';
+        audioCampos.style.display = audioToggle.checked ? 'flex' : 'none';
+      }
+    }
     selectEl.addEventListener('change', (ev)=>{
       const novaChave = ev.target.value;
       row.querySelector('.seq-nome-extra').style.display = novaChave === 'extra' ? '' : 'none';
-      row.querySelector('.seq-tema-doutora').style.display = novaChave === 'doutora' ? '' : 'none';
-      row.querySelector('.seq-audio-doutora').style.display = novaChave === 'doutora' ? '' : 'none';
+      sincronizarVisibilidadeAudio(novaChave);
       textoEl.placeholder = novaChave === 'doutora'
         ? 'Texto de introdução (curto — a conversa em si é áudio gravado, não vai aqui)...'
         : 'Texto do bloco...';
+      row.querySelector('.seq-tema-doutora').placeholder = novaChave === 'doutora'
+        ? 'Tema da conversa com a Doutora'
+        : 'Descrição do áudio (ex.: tema, ouvinte, quem recitou)';
+      atualizarTotalTempo();
+    });
+    audioToggle.addEventListener('change', ()=>{
+      audioCampos.style.display = audioToggle.checked ? 'flex' : 'none';
       atualizarTotalTempo();
     });
     row.querySelector('.seq-edit-btn').addEventListener('click', ()=> abrirEditorBloco(row));
@@ -979,6 +1004,7 @@ function contarPalavrasEditor(texto){
 // Recalibrado em 31/08 a partir de 4 trechos reais gravados (1335 palavras em 8min34s,
 // variação real de ~141 a ~185 palavras/min). Substitui o valor antigo de 86 ppm.
 const PALAVRAS_POR_MINUTO = 163;
+const VINHETA_ABERTURA_PADRAO_SEGUNDOS = 65; // 1:05 — mesmo padrão usado no campo da Nova Edição
 function parseDuracaoParaSegundos(str){
   if(!str) return 0;
   const partes = str.trim().split(':').map(p=>parseInt(p,10));
@@ -1001,7 +1027,7 @@ function calcularDuracaoTotalRoteiro(roteiro){
   (roteiro||[]).forEach(item=>{
     if(item.tipo === 'bloco'){
       segundosTexto += (contarPalavrasEditor(item.texto) / PALAVRAS_POR_MINUTO) * 60;
-      if(item.chave === 'doutora' && item.duracaoAudio) segundosAudio += parseDuracaoParaSegundos(item.duracaoAudio);
+      if(item.duracaoAudio) segundosAudio += parseDuracaoParaSegundos(item.duracaoAudio);
     } else if(item.tipo === 'musica'){
       if(item.duracao) segundosMusica += parseDuracaoParaSegundos(item.duracao);
       else musicasSemDuracao++;
@@ -1019,7 +1045,8 @@ function atualizarMarcadoresTempo(){
     if(marker) marker.textContent = formatarSegundos(acumulado);
     if(row.dataset.tipo === 'bloco'){
       acumulado += (contarPalavrasEditor(row.querySelector('.s-texto').value) / PALAVRAS_POR_MINUTO) * 60;
-      if(row.querySelector('.s-chave').value === 'doutora'){
+      const audioCampos = row.querySelector('.seq-audio-campos');
+      if(audioCampos && audioCampos.style.display !== 'none'){
         acumulado += parseDuracaoParaSegundos(row.querySelector('.s-duracao-audio').value.trim());
       }
     } else {
@@ -1037,8 +1064,8 @@ function atualizarTotalTempo(){
   rows.forEach(row=>{
     if(row.dataset.tipo === 'bloco'){
       segundosTexto += (contarPalavrasEditor(row.querySelector('.s-texto').value) / PALAVRAS_POR_MINUTO) * 60;
-      const chave = row.querySelector('.s-chave').value;
-      if(chave === 'doutora'){
+      const audioCampos = row.querySelector('.seq-audio-campos');
+      if(audioCampos && audioCampos.style.display !== 'none'){
         const audioBruto = row.querySelector('.s-duracao-audio').value.trim();
         if(audioBruto) segundosAudio += parseDuracaoParaSegundos(audioBruto);
       }
@@ -1084,18 +1111,32 @@ function abrirEditorBloco(row){
   const nomeInput = document.getElementById('editorNomeExtra');
   const temaInput = document.getElementById('editorTemaDoutora');
   const audioInput = document.getElementById('editorDuracaoAudio');
+  const audioToggleWrap = document.getElementById('editorAudioToggleWrap');
+  const audioToggle = document.getElementById('editorTemAudio');
 
   function sincronizarCamposEspeciais(v){
     nomeInput.style.display = v === 'extra' ? '' : 'none';
-    temaInput.style.display = v === 'doutora' ? '' : 'none';
-    audioInput.style.display = v === 'doutora' ? '' : 'none';
+    if(v === 'doutora'){
+      audioToggleWrap.style.display = 'none';
+      temaInput.style.display = '';
+      audioInput.style.display = '';
+      temaInput.placeholder = 'Tema da conversa com a Doutora';
+    } else {
+      audioToggleWrap.style.display = 'inline-flex';
+      temaInput.style.display = audioToggle.checked ? '' : 'none';
+      audioInput.style.display = audioToggle.checked ? '' : 'none';
+      temaInput.placeholder = 'Descrição do áudio (ex.: tema, ouvinte, quem recitou)';
+    }
   }
 
+  const audioCamposRow = row.querySelector('.seq-audio-campos');
+  audioToggle.checked = chave === 'doutora' ? true : !!(audioCamposRow && audioCamposRow.style.display !== 'none');
   nomeInput.value = row.querySelector('.seq-nome-extra').value;
   temaInput.value = row.querySelector('.seq-tema-doutora') ? row.querySelector('.seq-tema-doutora').value : '';
   audioInput.value = row.querySelector('.s-duracao-audio') ? row.querySelector('.s-duracao-audio').value : '';
   sincronizarCamposEspeciais(chave);
   select.onchange = ()=> sincronizarCamposEspeciais(select.value);
+  audioToggle.onchange = ()=> sincronizarCamposEspeciais(select.value);
 
   document.getElementById('editorTexto').value = row.querySelector('.s-texto').value;
   atualizarContagemEditor();
@@ -1114,6 +1155,7 @@ document.getElementById('editorTexto').addEventListener('input', atualizarContag
 document.getElementById('editorSalvar').addEventListener('click', ()=>{
   if(!editorRowAtual) return;
   const chave = document.getElementById('editorChave').value;
+  const temAudio = chave === 'doutora' || document.getElementById('editorTemAudio').checked;
   editorRowAtual.querySelector('.s-chave').value = chave;
   editorRowAtual.querySelector('.seq-nome-extra').value = document.getElementById('editorNomeExtra').value;
   editorRowAtual.querySelector('.seq-nome-extra').style.display = chave === 'extra' ? '' : 'none';
@@ -1121,8 +1163,12 @@ document.getElementById('editorSalvar').addEventListener('click', ()=>{
   const audioRow = editorRowAtual.querySelector('.s-duracao-audio');
   if(temaRow) temaRow.value = document.getElementById('editorTemaDoutora').value;
   if(audioRow) audioRow.value = document.getElementById('editorDuracaoAudio').value;
-  if(editorRowAtual.querySelector('.seq-tema-doutora')) editorRowAtual.querySelector('.seq-tema-doutora').style.display = chave === 'doutora' ? '' : 'none';
-  if(editorRowAtual.querySelector('.seq-audio-doutora')) editorRowAtual.querySelector('.seq-audio-doutora').style.display = chave === 'doutora' ? '' : 'none';
+  const audioToggleEl = editorRowAtual.querySelector('.s-tem-audio');
+  if(audioToggleEl) audioToggleEl.checked = temAudio && chave !== 'doutora';
+  const audioToggleWrapEl = editorRowAtual.querySelector('.seq-audio-toggle');
+  if(audioToggleWrapEl) audioToggleWrapEl.style.display = chave === 'doutora' ? 'none' : 'inline-flex';
+  const audioCamposEl = editorRowAtual.querySelector('.seq-audio-campos');
+  if(audioCamposEl) audioCamposEl.style.display = temAudio ? 'flex' : 'none';
   editorRowAtual.querySelector('.s-texto').value = document.getElementById('editorTexto').value;
   fecharEditorBloco();
   atualizarTotalTempo();
@@ -1249,7 +1295,9 @@ function lerSequenciaDoFormulario(){
     const chave = row.querySelector('.s-chave').value;
     const item = { tipo:'bloco', chave, texto: row.querySelector('.s-texto').value };
     if(chave === 'extra') item.nome = row.querySelector('.seq-nome-extra').value.trim();
-    if(chave === 'doutora'){
+    const audioCampos = row.querySelector('.seq-audio-campos');
+    const temAudio = chave === 'doutora' || (audioCampos && audioCampos.style.display !== 'none');
+    if(temAudio){
       item.tema = row.querySelector('.seq-tema-doutora').value.trim();
       item.duracaoAudio = row.querySelector('.s-duracao-audio').value.trim();
     }
@@ -1501,15 +1549,26 @@ function imprimirEdicao(id){
     }
   });
 
+  // ---- Marcador de tempo previsto de início de cada bloco (vinheta + locução + músicas acumuladas) ----
+  let acumuladoResumo = VINHETA_ABERTURA_PADRAO_SEGUNDOS;
+  const marcadoresTempo = paginas.map(p=>{
+    const inicio = acumuladoResumo;
+    acumuladoResumo += (contarPalavrasEditor(p.texto) / PALAVRAS_POR_MINUTO) * 60;
+    if(p.duracaoAudio) acumuladoResumo += parseDuracaoParaSegundos(p.duracaoAudio);
+    p.musicas.forEach(m=>{ if(m.duracao) acumuladoResumo += parseDuracaoParaSegundos(m.duracao); });
+    return inicio;
+  });
+
   // ---- Folha de rosto: tabela-resumo na ordem real de execução (bloco + música(s) que segue) ----
   const linhasResumo = paginas.map((p,i)=>{
     const musicaHtml = p.musicas.length
-      ? p.musicas.map((m,j)=>`🎵 Música ${j+1}: ${escapeHtml([m.titulo,m.artista].filter(Boolean).join(' — '))}`).join('<br>')
+      ? p.musicas.map(m=>`🎵 ${escapeHtml([m.titulo,m.artista].filter(Boolean).join(' — '))}`).join('<br>')
       : '<span style="color:#bbb;">—</span>';
-    const audioHtml = p.chave === 'doutora'
+    const audioHtml = p.duracaoAudio || p.tema
       ? `🎙️ Áudio gravado${p.tema? ': '+escapeHtml(p.tema):''}${p.duracaoAudio? ' ('+escapeHtml(p.duracaoAudio)+')':''}`
       : '';
     return `<tr>
+      <td class="thora">${formatarSegundos(marcadoresTempo[i])}</td>
       <td class="num">${String(i+1).padStart(2,'0')}</td>
       <td><span class="btitulo">${escapeHtml(p.label)}</span></td>
       <td class="bmusica">${[musicaHtml, audioHtml].filter(Boolean).join('<br>') || '<span style="color:#bbb;">—</span>'}</td>
@@ -1521,15 +1580,18 @@ function imprimirEdicao(id){
     const paragrafos = p.texto.trim()
       ? p.texto.trim().split(/\n{2,}/).map(par=>`<p>${escapeHtml(par).replace(/\n/g,'<br>')}</p>`).join('')
       : '';
-    const musicasHtml = p.musicas.map((m,j)=>`<div class="musica-box">
-        <div class="rotulo">MÚSICA ${String(j+1).padStart(2,'0')}</div>
-        <span class="nome-musica">${escapeHtml(m.titulo||'')}</span>
+    const musicasHtml = p.musicas.map(m=>{
+      const titulo = (m.titulo||'').trim();
+      return `<div class="musica-box">
+        <div class="rotulo">🎵 ENTRA MÚSICA — ${escapeHtml(titulo.toUpperCase())}</div>
+        <span class="nome-musica">${escapeHtml(titulo)}</span>
         <div class="artista">${escapeHtml(m.artista||'')}</div>
-      </div>`).join('');
-    const audioBoxHtml = p.chave === 'doutora' ? `<div class="musica-box" style="border-left-color:#7c4dff;">
-        <div class="rotulo">🎙️ ÁUDIO GRAVADO${p.duracaoAudio? ' · '+escapeHtml(p.duracaoAudio):''}</div>
-        <span class="nome-musica">${escapeHtml(p.tema || '(tema não informado)')}</span>
-        <div class="artista">Conversa com a psicóloga — gravação externa, não é locução ao vivo</div>
+      </div>`;
+    }).join('');
+    const audioBoxHtml = (p.duracaoAudio || p.tema) ? `<div class="musica-box" style="border-left-color:#7c4dff;">
+        <div class="rotulo">🎙️ ENTRA ÁUDIO GRAVADO${p.duracaoAudio? ' · '+escapeHtml(p.duracaoAudio):''}</div>
+        <span class="nome-musica">${escapeHtml(p.tema || '(descrição não informada)')}</span>
+        <div class="artista">${p.chave === 'doutora' ? 'Conversa com a psicóloga' : 'Gravação externa'} — não é locução ao vivo</div>
       </div>` : '';
     return `<div class="page">
       <div class="top-header" style="background:${p.cor};">
@@ -1579,6 +1641,7 @@ function imprimirEdicao(id){
   table.roteiro th{ text-align:left; font-size:12px; letter-spacing:.5px; color:#999; padding:8px 6px; border-bottom:1px solid #eee; }
   table.roteiro td{ padding:12px 6px; border-bottom:1px solid #f0f0f0; vertical-align:top; }
   table.roteiro td.num{ color:#999; width:28px; }
+  table.roteiro td.thora, table.roteiro th.thora{ color:#2c3e50; font-weight:700; font-family:'Courier New',monospace; width:52px; }
   table.roteiro .btitulo{ font-weight:600; color:#1a1a1a; }
   table.roteiro .bmusica{ font-size:13px; font-style:italic; color:#555; line-height:1.5; }
   .musica-box{ background:var(--musica-bg); border-left:4px solid var(--musica-border); padding:10px 14px; margin:12px 0; border-radius:0 6px 6px 0; }
@@ -1627,7 +1690,7 @@ function imprimirEdicao(id){
     <div class="chamada">${escapeHtml(e.tema||'')}</div>
     <div class="rotulo-secao">ROTEIRO COMPLETO · LOCUÇÃO + MÚSICAS · Exibição: ${formatDataBR(e.data)}</div>
     <table class="roteiro">
-      <tr><th class="num">#</th><th>Bloco</th><th>Música</th></tr>
+      <tr><th class="thora">⏱</th><th class="num">#</th><th>Bloco</th><th>Música</th></tr>
       ${linhasResumo}
     </table>
   </div>
