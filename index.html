@@ -231,6 +231,11 @@
   }
   .seq-row.tipo-musica{ background: var(--forest-tint); }
   .seq-top{ display:flex; align-items:center; gap:8px; margin-bottom:8px; flex-wrap:wrap; }
+  .seq-time-marker{
+    font-family:'IBM Plex Mono',monospace; font-size:12px; font-weight:700; color: var(--brass);
+    background: var(--brass-tint, rgba(184,140,45,0.12)); border:1px solid var(--brass);
+    border-radius:4px; padding:2px 7px; flex-shrink:0; min-width:44px; text-align:center;
+  }
   .seq-tag{
     font-family:'IBM Plex Mono',monospace; font-size:10.5px; text-transform:uppercase; letter-spacing:1px;
     font-weight:700; padding:3px 8px; border-radius:10px; color:#fff; flex-shrink:0;
@@ -469,6 +474,10 @@
     <div class="form-section">
       <h3>Roteiro (ordem de execução)</h3>
       <p style="font-size:12px; color:var(--ink-soft); margin:-6px 0 14px;">Monte o roteiro na ordem real do programa: clique no "+" no ponto exato onde algo deve entrar — início, entre dois itens, ou no fim — e escolha o bloco ou a música. Dá pra inserir ou trocar algo no meio do roteiro sem precisar mover nada depois.</p>
+      <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
+        <label for="fVinhetaAbertura" style="font-size:12.5px; color:var(--ink-soft);">🎺 Vinheta de abertura (antes do primeiro item, mm:ss):</label>
+        <input type="text" id="fVinhetaAbertura" value="1:05" style="width:70px; padding:5px 8px; border-radius:4px; border:1.5px solid var(--thread); background:var(--card); font-family:'IBM Plex Mono',monospace; font-size:13px;">
+      </div>
       <div id="sequenciaRows"></div>
       <div id="totalTempoRoteiro" class="total-tempo-bar"></div>
       <div style="display:flex; gap:10px; margin-top:10px; flex-wrap:wrap; align-items:center;">
@@ -888,6 +897,7 @@ function criarLinhaSequencia(item){
   if(item.tipo === 'musica'){
     row.innerHTML = `
       <div class="seq-top">
+        <span class="seq-time-marker" title="Horário previsto de início">--:--</span>
         <span class="seq-tag musica">Música</span>
         <button type="button" class="seq-move" data-dir="-1" title="Mover para cima">▲</button>
         <button type="button" class="seq-move" data-dir="1" title="Mover para baixo">▼</button>
@@ -904,6 +914,7 @@ function criarLinhaSequencia(item){
     const chave = item.chave || 'abertura';
     row.innerHTML = `
       <div class="seq-top">
+        <span class="seq-time-marker" title="Horário previsto de início">--:--</span>
         <span class="seq-tag bloco">Bloco</span>
         <select class="s-chave">
           ${todosBlocosParaSelect().map(([k,label])=>`<option value="${k}" ${chave===k?'selected':''}>${label}</option>`).join('')}
@@ -964,7 +975,10 @@ function contarPalavrasEditor(texto){
   return m ? m.length : 0;
 }
 
-/* ---------- Duração total do roteiro (texto a 86 ppm + duração real das músicas) ---------- */
+/* ---------- Duração total do roteiro (texto a 163 ppm + duração real das músicas) ---------- */
+// Recalibrado em 31/08 a partir de 4 trechos reais gravados (1335 palavras em 8min34s,
+// variação real de ~141 a ~185 palavras/min). Substitui o valor antigo de 86 ppm.
+const PALAVRAS_POR_MINUTO = 163;
 function parseDuracaoParaSegundos(str){
   if(!str) return 0;
   const partes = str.trim().split(':').map(p=>parseInt(p,10));
@@ -986,7 +1000,7 @@ function calcularDuracaoTotalRoteiro(roteiro){
   let segundosTexto = 0, segundosMusica = 0, segundosAudio = 0, musicasSemDuracao = 0;
   (roteiro||[]).forEach(item=>{
     if(item.tipo === 'bloco'){
-      segundosTexto += (contarPalavrasEditor(item.texto) / 86) * 60;
+      segundosTexto += (contarPalavrasEditor(item.texto) / PALAVRAS_POR_MINUTO) * 60;
       if(item.chave === 'doutora' && item.duracaoAudio) segundosAudio += parseDuracaoParaSegundos(item.duracaoAudio);
     } else if(item.tipo === 'musica'){
       if(item.duracao) segundosMusica += parseDuracaoParaSegundos(item.duracao);
@@ -996,14 +1010,33 @@ function calcularDuracaoTotalRoteiro(roteiro){
   return { segundosTexto, segundosMusica, segundosAudio, totalSegundos: segundosTexto + segundosMusica + segundosAudio, musicasSemDuracao };
 }
 
+function atualizarMarcadoresTempo(){
+  const vinhetaSegundos = parseDuracaoParaSegundos(document.getElementById('fVinhetaAbertura').value.trim());
+  const rows = [...document.querySelectorAll('#sequenciaRows .seq-row')];
+  let acumulado = vinhetaSegundos;
+  rows.forEach(row=>{
+    const marker = row.querySelector('.seq-time-marker');
+    if(marker) marker.textContent = formatarSegundos(acumulado);
+    if(row.dataset.tipo === 'bloco'){
+      acumulado += (contarPalavrasEditor(row.querySelector('.s-texto').value) / PALAVRAS_POR_MINUTO) * 60;
+      if(row.querySelector('.s-chave').value === 'doutora'){
+        acumulado += parseDuracaoParaSegundos(row.querySelector('.s-duracao-audio').value.trim());
+      }
+    } else {
+      acumulado += parseDuracaoParaSegundos(row.querySelector('.s-duracao').value.trim());
+    }
+  });
+}
+
 function atualizarTotalTempo(){
   const el = document.getElementById('totalTempoRoteiro');
   if(!el) return;
+  atualizarMarcadoresTempo();
   const rows = [...document.querySelectorAll('#sequenciaRows .seq-row')];
   let segundosTexto = 0, segundosMusica = 0, segundosAudio = 0, musicasSemDuracao = 0;
   rows.forEach(row=>{
     if(row.dataset.tipo === 'bloco'){
-      segundosTexto += (contarPalavrasEditor(row.querySelector('.s-texto').value) / 86) * 60;
+      segundosTexto += (contarPalavrasEditor(row.querySelector('.s-texto').value) / PALAVRAS_POR_MINUTO) * 60;
       const chave = row.querySelector('.s-chave').value;
       if(chave === 'doutora'){
         const audioBruto = row.querySelector('.s-duracao-audio').value.trim();
@@ -1035,11 +1068,11 @@ function atualizarTotalTempo(){
 
 function atualizarContagemEditor(){
   const palavras = contarPalavrasEditor(document.getElementById('editorTexto').value);
-  const minutos = palavras / 86;
+  const minutos = palavras / PALAVRAS_POR_MINUTO;
   const mm = Math.floor(minutos);
   const ss = Math.round((minutos - mm) * 60);
   document.getElementById('editorContagem').textContent =
-    `${palavras} palavra${palavras===1?'':'s'} · ~${mm}:${String(ss).padStart(2,'0')} de locução (86 palavras/min)`;
+    `${palavras} palavra${palavras===1?'':'s'} · ~${mm}:${String(ss).padStart(2,'0')} de locução (${PALAVRAS_POR_MINUTO} palavras/min)`;
 }
 
 function abrirEditorBloco(row){
@@ -1231,6 +1264,7 @@ function resetForm(){
   document.getElementById('fNumero').value = '';
   document.getElementById('fTema').value = '';
   document.getElementById('fObs').value = '';
+  document.getElementById('fVinhetaAbertura').value = '1:05';
   renderSequenciaInicial([{ tipo:'bloco', chave:'abertura', texto:'' }]);
 }
 
@@ -1404,6 +1438,7 @@ function editarEdicao(id){
   document.getElementById('fNumero').value = e.numero || '';
   document.getElementById('fTema').value = e.tema || '';
   document.getElementById('fObs').value = e.obs || '';
+  document.getElementById('fVinhetaAbertura').value = '1:05';
 
   document.getElementById('sequenciaRows').innerHTML = '';
   let roteiro = e.roteiro;
@@ -1552,11 +1587,19 @@ function imprimirEdicao(id){
   .musica-box .artista{ color:#666; font-size:13px; margin-top:2px; }
   .rodape{ display:flex; justify-content:space-between; padding:14px 32px; background:#fafafa; border-top:1px solid #eee; font-size:12px; color:#999; }
   strong{ color:#111; }
+  .print-toolbar{ max-width:820px; margin:16px auto 12px; padding:0 16px; }
+  .print-toolbar button{
+    width:100%; padding:14px 20px; font-size:16px; font-weight:700; color:#fff;
+    background:#2c3e50; border:none; border-radius:8px; cursor:pointer;
+  }
+  .print-toolbar button:active{ background:#1c2b38; }
+  .print-toolbar p{ text-align:center; font-size:12.5px; color:#888; margin:8px 0 0; }
 
   @media print{
     @page{ size:A4; margin:8mm; }
     *{ -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; color-adjust:exact !important; }
     body{ background:#fff; }
+    .print-toolbar{ display:none !important; }
     .page{ box-shadow:none; border-radius:0; margin:0 auto; page-break-after:always; break-after:page; }
     .page:last-child{ page-break-after:auto; break-after:auto; }
     p, .musica-box, table.roteiro tr{ page-break-inside:avoid; break-inside:avoid; }
@@ -1566,6 +1609,11 @@ function imprimirEdicao(id){
   }
 </style>
 </head><body>
+
+<div class="print-toolbar">
+  <button onclick="window.print()">🖨️ Imprimir / Salvar como PDF</button>
+  <p>No celular, toque aqui e escolha "Salvar em PDF" ou "Salvar em Arquivos" na tela de impressão.</p>
+</div>
 
 <div class="page folha-rosto">
   <div class="top-header" style="background:var(--header-grad);">
@@ -1590,12 +1638,22 @@ ${paginasHtml}
 
 </body></html>`;
 
-  const win = window.open('', '_blank');
-  if(!win){ alert('Não foi possível abrir a janela de impressão. Verifique se o navegador bloqueou pop-ups.'); return; }
-  win.document.open();
-  win.document.write(doc);
-  win.document.close();
-  win.onload = () => { win.focus(); win.print(); };
+  // Abre como arquivo (Blob) num link clicado programaticamente, em vez de window.open('', '_blank')
+  // + document.write — esse método antigo, dentro de um PWA instalado no celular, substituía o
+  // conteúdo do próprio app em vez de abrir uma aba separada (parecia que o app "fechava"). Com
+  // Blob + <a target="_blank">, o sistema abre o roteiro numa aba/navegador de verdade, separado
+  // do app. O botão de imprimir fica dentro da própria página gerada — no celular, ele abre a tela
+  // nativa de impressão do navegador, que já tem opção de "Salvar como PDF".
+  const blob = new Blob([doc], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.target = '_blank';
+  link.rel = 'noopener';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  setTimeout(()=> URL.revokeObjectURL(url), 60000);
 }
 
 function excluirEdicao(id){
@@ -1661,6 +1719,7 @@ function renderSongResults(termoRaw){
 document.getElementById('songSearchInput').addEventListener('input', (e)=> renderSongResults(e.target.value));
 document.getElementById('searchGeral').addEventListener('input', renderLista);
 document.getElementById('filterTema').addEventListener('change', renderLista);
+document.getElementById('fVinhetaAbertura').addEventListener('input', atualizarTotalTempo);
 
 /* ---------- Render geral ---------- */
 function renderAll(){
