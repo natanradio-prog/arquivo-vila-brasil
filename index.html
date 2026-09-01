@@ -236,6 +236,13 @@
     background: var(--brass-tint, rgba(184,140,45,0.12)); border:1px solid var(--brass);
     border-radius:4px; padding:2px 7px; flex-shrink:0; min-width:44px; text-align:center;
   }
+  .texto-toolbar{ margin-bottom:4px; }
+  .btn-marcar-vermelho{
+    font-size:11.5px; font-weight:600; color:#c0392b; background:#fdecea;
+    border:1px solid #e6a19a; border-radius:4px; padding:3px 9px; cursor:pointer;
+  }
+  .btn-marcar-vermelho:hover{ background:#fbd6d1; }
+  .btn-marcar-vermelho:active{ background:#f3beb7; }
   .seq-tag{
     font-family:'IBM Plex Mono',monospace; font-size:10.5px; text-transform:uppercase; letter-spacing:1px;
     font-weight:700; padding:3px 8px; border-radius:10px; color:#fff; flex-shrink:0;
@@ -520,6 +527,9 @@
       </div>
       <button type="button" id="editorFechar" class="editor-modal-close" title="Fechar sem salvar">×</button>
     </div>
+    <div class="texto-toolbar" style="padding:0 16px;">
+      <button type="button" id="editorBtnVermelho" class="btn-marcar-vermelho" title="Selecione um trecho do texto e clique aqui pra marcar em vermelho na impressão">🔴 Vermelho</button>
+    </div>
     <textarea id="editorTexto" class="editor-modal-textarea" placeholder="Texto do bloco..."></textarea>
     <div class="editor-modal-footer">
       <span id="editorContagem" class="editor-modal-contagem"></span>
@@ -649,6 +659,38 @@ function formatDataBR(iso){
 }
 function escapeHtml(s){
   return (s||'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+}
+
+// Marca/desmarca em vermelho o trecho selecionado numa textarea, usando o
+// marcador [[...]] no texto puro (não dá pra colorir de verdade dentro de
+// uma <textarea> nativa — o vermelho de fato aparece na impressão/PDF).
+function alternarMarcacaoVermelha(textarea){
+  const start = textarea.selectionStart, end = textarea.selectionEnd;
+  if(start === end) return; // nada selecionado
+  const val = textarea.value;
+  const selecionado = val.slice(start, end);
+  let novoValor, novoStart, novoEnd;
+  if(selecionado.startsWith('[[') && selecionado.endsWith(']]') && selecionado.length >= 4){
+    const interno = selecionado.slice(2, -2);
+    novoValor = val.slice(0, start) + interno + val.slice(end);
+    novoStart = start; novoEnd = start + interno.length;
+  } else if(val.slice(Math.max(0, start-2), start) === '[[' && val.slice(end, end+2) === ']]'){
+    novoValor = val.slice(0, start-2) + selecionado + val.slice(end+2);
+    novoStart = start-2; novoEnd = end-2;
+  } else {
+    novoValor = val.slice(0, start) + '[[' + selecionado + ']]' + val.slice(end);
+    novoStart = start; novoEnd = end+4;
+  }
+  textarea.value = novoValor;
+  textarea.focus();
+  textarea.setSelectionRange(novoStart, novoEnd);
+  textarea.dispatchEvent(new Event('input', { bubbles:true }));
+}
+
+// Converte os marcadores [[...]] em <span> vermelho — usado só na hora de montar
+// o HTML de impressão, depois que o texto já passou por escapeHtml.
+function aplicarMarcacaoVermelha(textoEscapado){
+  return textoEscapado.replace(/\[\[(.+?)\]\]/g, '<span style="color:#c0392b; font-weight:600;">$1</span>');
 }
 
 /* ---------- Persistência local ---------- */
@@ -932,6 +974,9 @@ function criarLinhaSequencia(item){
         <button type="button" class="seq-move" data-dir="1" title="Mover para baixo">▼</button>
         <button type="button" class="seq-remove" title="Remover">×</button>
       </div>
+      <div class="texto-toolbar">
+        <button type="button" class="btn-marcar-vermelho" title="Selecione um trecho do texto e clique aqui pra marcar em vermelho na impressão">🔴 Vermelho</button>
+      </div>
       <textarea class="s-texto" placeholder="${chave==='doutora' ? 'Texto de introdução (curto — a conversa em si é áudio gravado, não vai aqui)...' : 'Texto do bloco...'}">${item.texto||''}</textarea>
       <div class="seq-audio-campos" style="margin-top:8px; gap:8px; flex-wrap:wrap; ${temAudio ? 'display:flex;' : 'display:none;'}">
         <input type="text" class="seq-tema-doutora" placeholder="${chave==='doutora' ? 'Tema da conversa com a Doutora' : 'Descrição do áudio (ex.: tema, ouvinte, quem recitou)'}" value="${escapeHtml(item.tema||'')}" style="flex:1; min-width:200px;">
@@ -940,6 +985,7 @@ function criarLinhaSequencia(item){
     `;
     const selectEl = row.querySelector('.s-chave');
     const textoEl = row.querySelector('.s-texto');
+    row.querySelector('.btn-marcar-vermelho').addEventListener('click', ()=> alternarMarcacaoVermelha(textoEl));
     const audioToggle = row.querySelector('.s-tem-audio');
     const audioCampos = row.querySelector('.seq-audio-campos');
     const audioToggleWrap = row.querySelector('.seq-audio-toggle');
@@ -1151,6 +1197,7 @@ function fecharEditorBloco(){
 }
 
 document.getElementById('editorTexto').addEventListener('input', atualizarContagemEditor);
+document.getElementById('editorBtnVermelho').addEventListener('click', ()=> alternarMarcacaoVermelha(document.getElementById('editorTexto')));
 
 document.getElementById('editorSalvar').addEventListener('click', ()=>{
   if(!editorRowAtual) return;
@@ -1578,7 +1625,7 @@ function imprimirEdicao(id){
   // ---- Uma .page por bloco (com as músicas que tocam logo depois dele, na ordem real) ----
   const paginasHtml = paginas.map((p,i)=>{
     const paragrafos = p.texto.trim()
-      ? p.texto.trim().split(/\n{2,}/).map(par=>`<p>${escapeHtml(par).replace(/\n/g,'<br>')}</p>`).join('')
+      ? p.texto.trim().split(/\n{2,}/).map(par=>`<p>${aplicarMarcacaoVermelha(escapeHtml(par).replace(/\n/g,'<br>'))}</p>`).join('')
       : '';
     const musicasHtml = p.musicas.map(m=>{
       const titulo = (m.titulo||'').trim();
