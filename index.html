@@ -243,6 +243,12 @@
   }
   .btn-marcar-vermelho:hover{ background:#fbd6d1; }
   .btn-marcar-vermelho:active{ background:#f3beb7; }
+  .btn-remover-vermelho{
+    font-size:11.5px; font-weight:600; color:#444; background:#eee;
+    border:1px solid #ccc; border-radius:4px; padding:3px 9px; cursor:pointer;
+  }
+  .btn-remover-vermelho:hover{ background:#e0e0e0; }
+  .btn-remover-vermelho:active{ background:#d0d0d0; }
   .btn-gerar-ia{
     font-size:11.5px; font-weight:600; color:#fff; background:linear-gradient(135deg,#6a4fc2,#8a6fe0);
     border:none; border-radius:4px; padding:4px 10px; cursor:pointer; white-space:nowrap;
@@ -535,7 +541,8 @@
       <button type="button" id="editorFechar" class="editor-modal-close" title="Fechar sem salvar">×</button>
     </div>
     <div class="texto-toolbar" style="padding:0 16px;">
-      <button type="button" id="editorBtnVermelho" class="btn-marcar-vermelho" title="Selecione um trecho do texto e clique aqui pra marcar em vermelho na impressão">🔴 Vermelho</button>
+      <button type="button" id="editorBtnVermelho" class="btn-marcar-vermelho" title="Selecione um trecho (pode ser o texto inteiro) e clique aqui pra marcar em vermelho na impressão">🔴 Marcar</button>
+      <button type="button" id="editorBtnRemoverVermelho" class="btn-remover-vermelho" title="Remove a marcação vermelha da seleção — ou do texto inteiro, se nada estiver selecionado">⚫ Remover marcação</button>
     </div>
     <textarea id="editorTexto" class="editor-modal-textarea" placeholder="Texto do bloco..."></textarea>
     <div class="editor-modal-footer">
@@ -692,29 +699,46 @@ function escapeHtml(s){
   return (s||'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 }
 
-// Marca/desmarca em vermelho o trecho selecionado numa textarea, usando o
-// marcador [[...]] no texto puro (não dá pra colorir de verdade dentro de
-// uma <textarea> nativa — o vermelho de fato aparece na impressão/PDF).
-function alternarMarcacaoVermelha(textarea){
+// Marca em vermelho o trecho selecionado numa textarea, usando o marcador
+// [[...]] no texto puro (não dá pra colorir de verdade dentro de uma
+// <textarea> nativa — o vermelho de fato aparece na impressão/PDF).
+// Se a seleção atravessar mais de um parágrafo (linha em branco), cada
+// parágrafo recebe seu próprio par de marcadores — assim a marcação nunca
+// atravessa a quebra de página/parágrafo que a impressão usa, e dá pra
+// selecionar o texto inteiro de uma vez e marcar tudo num clique só.
+function marcarSelecaoVermelha(textarea){
   const start = textarea.selectionStart, end = textarea.selectionEnd;
-  if(start === end) return; // nada selecionado
+  if(start === end){ alert('Selecione o trecho que quer marcar em vermelho primeiro.'); return; }
   const val = textarea.value;
   const selecionado = val.slice(start, end);
-  let novoValor, novoStart, novoEnd;
-  if(selecionado.startsWith('[[') && selecionado.endsWith(']]') && selecionado.length >= 4){
-    const interno = selecionado.slice(2, -2);
-    novoValor = val.slice(0, start) + interno + val.slice(end);
-    novoStart = start; novoEnd = start + interno.length;
-  } else if(val.slice(Math.max(0, start-2), start) === '[[' && val.slice(end, end+2) === ']]'){
-    novoValor = val.slice(0, start-2) + selecionado + val.slice(end+2);
-    novoStart = start-2; novoEnd = end-2;
-  } else {
-    novoValor = val.slice(0, start) + '[[' + selecionado + ']]' + val.slice(end);
-    novoStart = start; novoEnd = end+4;
-  }
+  const limpo = selecionado.replace(/\[\[|\]\]/g, ''); // evita marcador duplicado se parte já estava marcada
+  const partes = limpo.split(/(\n{2,})/); // mantém as quebras de parágrafo como itens separados
+  const marcado = partes.map(parte => {
+    if(parte === '' || /^\n{2,}$/.test(parte) || parte.trim() === '') return parte;
+    return '[[' + parte + ']]';
+  }).join('');
+  const novoValor = val.slice(0, start) + marcado + val.slice(end);
   textarea.value = novoValor;
   textarea.focus();
-  textarea.setSelectionRange(novoStart, novoEnd);
+  textarea.setSelectionRange(start, start + marcado.length);
+  textarea.dispatchEvent(new Event('input', { bubbles:true }));
+}
+
+// Remove toda marcação vermelha do trecho selecionado — ou do texto inteiro,
+// se nada estiver selecionado (forma rápida de "desmarcar tudo" sem precisar
+// selecionar parágrafo por parágrafo).
+function removerMarcacaoVermelha(textarea){
+  const start = textarea.selectionStart, end = textarea.selectionEnd;
+  const val = textarea.value;
+  if(start === end){
+    textarea.value = val.replace(/\[\[|\]\]/g, '');
+    textarea.focus();
+  } else {
+    const meioLimpo = val.slice(start, end).replace(/\[\[|\]\]/g, '');
+    textarea.value = val.slice(0, start) + meioLimpo + val.slice(end);
+    textarea.focus();
+    textarea.setSelectionRange(start, start + meioLimpo.length);
+  }
   textarea.dispatchEvent(new Event('input', { bubbles:true }));
 }
 
@@ -1006,7 +1030,8 @@ function criarLinhaSequencia(item){
         <button type="button" class="seq-remove" title="Remover">×</button>
       </div>
       <div class="texto-toolbar" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
-        <button type="button" class="btn-marcar-vermelho" title="Selecione um trecho do texto e clique aqui pra marcar em vermelho na impressão">🔴 Vermelho</button>
+        <button type="button" class="btn-marcar-vermelho" title="Selecione um trecho (pode ser o texto inteiro) e clique aqui pra marcar em vermelho na impressão">🔴 Marcar</button>
+        <button type="button" class="btn-remover-vermelho" title="Remove a marcação vermelha da seleção — ou do texto inteiro, se nada estiver selecionado">⚫ Remover marcação</button>
         <input type="text" class="ia-contexto" placeholder="Contexto pro rascunho (ex.: notícia sobre café)" style="flex:1; min-width:160px; padding:4px 8px; font-size:12px; border-radius:4px; border:1.5px solid var(--thread); background:var(--card);">
         <button type="button" class="btn-gerar-ia" title="Gera um rascunho com a IA, usando a skill do Vila Brasil como base — sempre revise antes de aprovar">✨ Gerar rascunho com IA</button>
       </div>
@@ -1019,7 +1044,8 @@ function criarLinhaSequencia(item){
     const selectEl = row.querySelector('.s-chave');
     const textoEl = row.querySelector('.s-texto');
     row.querySelector('.btn-gerar-ia').addEventListener('click', ()=> gerarRascunhoBloco(row));
-    row.querySelector('.btn-marcar-vermelho').addEventListener('click', ()=> alternarMarcacaoVermelha(textoEl));
+    row.querySelector('.btn-marcar-vermelho').addEventListener('click', ()=> marcarSelecaoVermelha(textoEl));
+    row.querySelector('.btn-remover-vermelho').addEventListener('click', ()=> removerMarcacaoVermelha(textoEl));
     const audioToggle = row.querySelector('.s-tem-audio');
     const audioCampos = row.querySelector('.seq-audio-campos');
     const audioToggleWrap = row.querySelector('.seq-audio-toggle');
@@ -1343,7 +1369,8 @@ function fecharEditorBloco(){
 }
 
 document.getElementById('editorTexto').addEventListener('input', atualizarContagemEditor);
-document.getElementById('editorBtnVermelho').addEventListener('click', ()=> alternarMarcacaoVermelha(document.getElementById('editorTexto')));
+document.getElementById('editorBtnVermelho').addEventListener('click', ()=> marcarSelecaoVermelha(document.getElementById('editorTexto')));
+document.getElementById('editorBtnRemoverVermelho').addEventListener('click', ()=> removerMarcacaoVermelha(document.getElementById('editorTexto')));
 
 document.getElementById('editorSalvar').addEventListener('click', ()=>{
   if(!editorRowAtual) return;
